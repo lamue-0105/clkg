@@ -75,7 +75,7 @@ clkg/
 ### 2. Install
 
 ```bash
-git clone https://github.com/lamue/clkg.git
+git clone https://github.com/lamue-0105/clkg.git
 cd clkg
 pip install -r requirements.txt
 cp .env.example .env
@@ -162,7 +162,7 @@ If you use CLKG in your research, please cite as:
   author = {lamue},
   title  = {{CLKG}: Cultural Landscape Knowledge Graph},
   year   = {2026},
-  url    = {https://github.com/lamue/clkg},
+  url    = {https://github.com/lamue-0105/clkg},
   note   = {Version 0.1.0}
 }
 ```
@@ -207,4 +207,4 @@ This work is part of an ongoing doctoral research project on **Spatio-Temporal S
 
 ## Contact
 
-Issues and questions: please use [GitHub Issues](https://github.com/lamue/clkg/issues).
+Issues and questions: please use [GitHub Issues](https://github.com/lamue-0105/clkg/issues).

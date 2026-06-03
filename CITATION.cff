@@ -14,7 +14,7 @@ type: software
 authors:
   - given-names: lamue
     email: shaotongdeyx@gmail.com
-repository-code: "https://github.com/lamue/clkg"
+repository-code: "https://github.com/lamue-0105/clkg"
 license: MIT
 keywords:
   - cultural heritage
