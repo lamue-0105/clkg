@@ -1,0 +1,89 @@
+# ============================================================
+# CLKG · .gitignore
+# 公开仓库——含敏感凭据、版权数据、个人审计记录的文件不纳入
+# ============================================================
+
+# === 凭据与配置（绝不上传）===
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# === 数据文件（含版权或个人身份信息）===
+data_collection/权威清单_*.csv
+data_collection/权威实体清单.xlsx
+data_collection/quality-audit/*.md
+!data_collection/quality-audit/.gitkeep
+
+# === Python 工具产物 ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+
+# === Jupyter ===
+.ipynb_checkpoints/
+*.ipynb
+
+# === 虚拟环境 ===
+venv/
+env/
+ENV/
+.venv/
+
+# === IDE / 编辑器 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# === 数据库 dump 与日志 ===
+*.sql.gz
+*.dump
+*.log
+*.tmp
+
+# === 大型可视化 HTML（生成产物，按需 commit）===
+# 保留：保留报告类 HTML 以便他人查看演示
+# KG_VISUALIZATION.html
+# PHOTO_TIMELINE.html
+# QIAOPI_MAP.html
+
+# === 临时文件 ===
+*.bak
+*.tmp
+*.orig
+*.rej
+
+# === macOS 系统 ===
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# === 本地草稿 ===
+DRAFT_*.md
+notes_*.md

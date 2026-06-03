@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>侨批跨海家书 · 地理可视化</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC",
+         "Hiragino Sans GB", sans-serif; height: 100vh;
+         display: flex; flex-direction: column; }
+  header { background:#fff; padding:12px 24px; border-bottom:1px solid #d0d7de; }
+  header h1 { margin:0; font-size:18px; }
+  header .sub { font-size:12px; color:#57606a; margin-top:2px; }
+  main { flex:1; display:flex; min-height:0; }
+  /* 给 map 容器双重保险, 避免 flexbox 算高失败时整片空白 */
+  #map { flex:1; min-height: 500px; height: 100%; background:#eef3f8; }
+  aside { width:340px; padding:16px 20px; overflow-y:auto;
+          font-size:13px; line-height:1.6; border-left:1px solid #d0d7de; }
+  aside h2 { font-size:15px; margin:0 0 8px 0; }
+  aside h3 { font-size:12px; margin:16px 0 6px 0; color:#57606a;
+             text-transform:uppercase; letter-spacing:.05em; }
+  .stat { display:flex; justify-content:space-between;
+          padding:3px 0; border-bottom:1px dashed #eee; }
+  .stat b { color:#0969da; }
+  .legend-dot { display:inline-block; width:12px; height:12px;
+                border-radius:50%; vertical-align:middle; margin-right:6px; }
+  .demo-note { background:#fff8e1; padding:8px 10px; border-radius:4px;
+               font-size:11px; color:#5c4a00; margin-top:8px; }
+  table { width:100%; font-size:11px; border-collapse:collapse; }
+  table td { padding:3px 4px; border-bottom:1px solid #f0f0f0; }
+  table td:last-child { text-align:right; color:#0969da; font-weight:600; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>侨批 · 跨海家书地理网络</h1>
+  <div class="sub">qiaopi_cl_kg · Leaflet + OpenStreetMap · 数据快照 2026-05-19</div>
+</header>
+
+<main>
+  <div id="map"></div>
+  <aside>
+    <h2>📍 侨批的地理叙事</h2>
+    <p>侨批 = <b>海外华侨寄回家乡的家书 + 汇款单</b>, 是 19c–20c 初华人跨海移民的金融与情感纽带 (UNESCO 世界记忆遗产 2013)。</p>
+
+    <h3>统计</h3>
+    <div class="stat"><span>总侨批数</span><b id="total-letters"></b></div>
+    <div class="stat"><span>潮汕家乡收件地</span><b id="n-dest"></b></div>
+    <div class="stat"><span>海外寄出地 (demo)</span><b id="n-overseas"></b></div>
+    <div class="stat"><span>可视化流向</span><b id="n-flows"></b></div>
+
+    <h3>图例</h3>
+    <p>
+      <span class="legend-dot" style="background:#dc2626"></span>
+      <b>海外寄出地</b> (叻/暹/泰国/...)<br/>
+      <span class="legend-dot" style="background:#0969da"></span>
+      <b>潮汕家乡收件地</b> (37 个真实坐标)<br/>
+      <span style="display:inline-block;width:24px;height:0;border-top:2px solid #fb8c00;vertical-align:middle;margin-right:6px"></span>
+      流向: 海外 → 家乡 (线粗 = 数量)
+    </p>
+
+    <div class="demo-note">
+      ⚠ 海外寄出地坐标为 <b>demo 数据</b> (历史地名常识 / Wikidata), 数据库内未存几何; 收件地坐标为<b>真实 PostGIS</b>。
+    </div>
+
+    <h3>Top 10 流向</h3>
+    <table id="flow-tbl"></table>
+
+    <h3>学术意义</h3>
+    <p>把"寄信流向"从字符串属性升级为<b>可推理的语义图</b>, 是历史地理学 / 数字人文 / GIScience 交叉的具体落地。同样的框架可用于人口迁徙、贸易路线等任何"流"型遗产。</p>
+  </aside>
+</main>
+
+<script>
+const DATA = {
+  "destinations": [
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000015",
+      "name": "广东省潮州市潮安区江东镇",
+      "lon": 116.67923,
+      "lat": 23.551897,
+      "letters": 1818
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000001",
+      "name": "广东省揭阳市揭东区东凤镇",
+      "lon": 116.411928,
+      "lat": 23.567252,
+      "letters": 1564
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000017",
+      "name": "广东省汕头市澄海区隆都镇",
+      "lon": 116.741561,
+      "lat": 23.55988,
+      "letters": 1058
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000032",
+      "name": "广东省潮州市潮安区磷溪镇",
+      "lon": 116.676971,
+      "lat": 23.463598,
+      "letters": 510
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000027",
+      "name": "广东省梅州市丰顺县铁铺镇",
+      "lon": 116.181895,
+      "lat": 23.739364,
+      "letters": 465
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000008",
+      "name": "广东省汕头市澄海区官塘镇",
+      "lon": 116.755945,
+      "lat": 23.466314,
+      "letters": 450
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000012",
+      "name": "广东省汕头市潮阳区东里镇",
+      "lon": 116.601677,
+      "lat": 23.264923,
+      "letters": 371
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000026",
+      "name": "广东省汕头市潮阳区溪南镇",
+      "lon": 116.601677,
+      "lat": 23.264923,
+      "letters": 232
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000021",
+      "name": "广东省汕头市龙湖区莲华街道",
+      "lon": 116.745373,
+      "lat": 23.477331,
+      "letters": 229
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000025",
+      "name": "广东省汕头市龙湖区外砂镇",
+      "lon": 116.749559,
+      "lat": 23.438159,
+      "letters": 172
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000061",
+      "name": "广东省汕头市龙湖区广益街道",
+      "lon": 116.745373,
+      "lat": 23.477331,
+      "letters": 85
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000055",
+      "name": "广东省揭阳市普宁市流沙西街道",
+      "lon": 116.163691,
+      "lat": 23.291745,
+      "letters": 66
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000082",
+      "name": "广东省潮州市潮安区庵埠镇",
+      "lon": 116.688467,
+      "lat": 23.463091,
+      "letters": 65
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000051",
+      "name": "广东省揭阳市普宁市同益镇",
+      "lon": 116.165646,
+      "lat": 23.297742,
+      "letters": 32
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000064",
+      "name": "广东省潮州市潮安区意溪镇",
+      "lon": 116.676971,
+      "lat": 23.463598,
+      "letters": 29
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000112",
+      "name": "广东省潮州市饶平县月城镇",
+      "lon": 117.0045,
+      "lat": 23.663294,
+      "letters": 19
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000150",
+      "name": "广东省汕头市澄海区澄城街道",
+      "lon": 116.745373,
+      "lat": 23.477331,
+      "letters": 17
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000142",
+      "name": "广东省揭阳市普宁市金山街道",
+      "lon": 116.017594,
+      "lat": 23.213045,
+      "letters": 9
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000214",
+      "name": "广东省潮州市饶平县大坝镇",
+      "lon": 117.0045,
+      "lat": 23.663294,
+      "letters": 8
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000110",
+      "name": "广东省揭阳市惠来县归湖镇",
+      "lon": 116.295038,
+      "lat": 23.033889,
+      "letters": 8
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000132",
+      "name": "广东省揭阳市榕城区榕东街道",
+      "lon": 116.393142,
+      "lat": 23.537673,
+      "letters": 8
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000189",
+      "name": "广东省汕头市澄海区炮台镇",
+      "lon": 116.755945,
+      "lat": 23.466314,
+      "letters": 6
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000257",
+      "name": "广东省汕头市龙湖区鸥汀街道",
+      "lon": 116.75238,
+      "lat": 23.430214,
+      "letters": 6
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000163",
+      "name": "广东省揭阳市普宁市云步镇",
+      "lon": 116.165646,
+      "lat": 23.297742,
+      "letters": 6
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000081",
+      "name": "广东省揭阳市揭西县登塘镇",
+      "lon": 115.841742,
+      "lat": 23.431314,
+      "letters": 5
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000109",
+      "name": "广东省揭阳市普宁市白塔镇",
+      "lon": 116.165646,
+      "lat": 23.297742,
+      "letters": 5
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000022",
+      "name": "广东省揭阳市榕城区",
+      "lon": 116.36714,
+      "lat": 23.525918,
+      "letters": 3
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000166",
+      "name": "广东省汕头市金平区金砂街道",
+      "lon": 116.695397,
+      "lat": 23.370389,
+      "letters": 2
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000295",
+      "name": "广东省潮州市潮安区文祠镇",
+      "lon": 116.67704,
+      "lat": 23.7562,
+      "letters": 2
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000080",
+      "name": "广东省揭阳市普宁市东风镇",
+      "lon": 116.165646,
+      "lat": 23.297742,
+      "letters": 2
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000290",
+      "name": "广东省潮州市湘桥区太平街道",
+      "lon": 116.635459,
+      "lat": 23.666458,
+      "letters": 1
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000362",
+      "name": "广东省汕头市澄海区马滘街道",
+      "lon": 116.745373,
+      "lat": 23.477331,
+      "letters": 1
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000321",
+      "name": "广东省揭阳市普宁市博士镇",
+      "lon": 116.165646,
+      "lat": 23.297742,
+      "letters": 1
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000463",
+      "name": "广东省揭阳市普宁市永祥镇",
+      "lon": 116.165646,
+      "lat": 23.297742,
+      "letters": 1
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000263",
+      "name": "广东省揭阳市普宁市流沙街道",
+      "lon": 116.154362,
+      "lat": 23.300375,
+      "letters": 1
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000452",
+      "name": "广东省潮州市潮安区凤凰镇",
+      "lon": 116.702906,
+      "lat": 23.903503,
+      "letters": 1
+    },
+    {
+      "pid": "clkg:qiaopi:pl-unk-0000389",
+      "name": "广东省汕头市澄海区燎原街道",
+      "lon": 116.745373,
+      "lat": 23.477331,
+      "letters": 1
+    }
+  ],
+  "flows": [
+    {
+      "origin": "叻",
+      "dest": "广东省潮州市潮安区彩塘镇",
+      "n": 928
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 755
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 508
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 265
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省揭阳市普宁市金石镇",
+      "n": 251
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省汕头市澄海区官塘镇",
+      "n": 237
+    },
+    {
+      "origin": "新加坡",
+      "dest": "广东省潮州市潮安区彩塘镇",
+      "n": 219
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市澄海区隆都镇",
+      "n": 212
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省汕头市澄海区隆都镇",
+      "n": 211
+    },
+    {
+      "origin": "吉隆",
+      "dest": "广东省潮州市潮安区彩塘镇",
+      "n": 193
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省潮州市潮安区浮洋镇",
+      "n": 186
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 185
+    },
+    {
+      "origin": "吉隆",
+      "dest": "广东省汕头市澄海区莲下镇",
+      "n": 153
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 147
+    },
+    {
+      "origin": "吉隆坡",
+      "dest": "广东省潮州市潮安区浮洋镇",
+      "n": 129
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 128
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省潮州市潮安区磷溪镇",
+      "n": 109
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市澄海区澄华街道",
+      "n": 105
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 94
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市龙湖区",
+      "n": 91
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省梅州市丰顺县铁铺镇",
+      "n": 88
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省梅州市丰顺县铁铺镇",
+      "n": 80
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省潮州市潮安区磷溪镇",
+      "n": 80
+    },
+    {
+      "origin": "泰京",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 80
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省汕头市潮阳区东里镇",
+      "n": 71
+    },
+    {
+      "origin": "新加坡",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 66
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省潮州市潮安区磷溪镇",
+      "n": 62
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省揭阳市普宁市玉窖镇",
+      "n": 61
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市澄海区隆都镇",
+      "n": 58
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市龙湖区莲华街道",
+      "n": 54
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省汕头市澄海区莲下镇",
+      "n": 52
+    },
+    {
+      "origin": "泰京",
+      "dest": "广东省梅州市丰顺县铁铺镇",
+      "n": 52
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省汕头市澄海区官塘镇",
+      "n": 51
+    },
+    {
+      "origin": "泰",
+      "dest": "广东省潮州市潮安区磷溪镇",
+      "n": 49
+    },
+    {
+      "origin": "吧生",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 49
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市龙湖区莲华街道",
+      "n": 48
+    },
+    {
+      "origin": "泰京",
+      "dest": "广东省汕头市澄海区隆都镇",
+      "n": 48
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省潮州市饶平县沙溪镇",
+      "n": 46
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省潮州市潮安区庵埠镇",
+      "n": 45
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省汕头市龙湖区莲华街道",
+      "n": 41
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省汕头市澄海区隆都镇",
+      "n": 41
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市龙湖区广益街道",
+      "n": 40
+    },
+    {
+      "origin": "越",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 39
+    },
+    {
+      "origin": "泰",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 39
+    },
+    {
+      "origin": "吉隆",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 38
+    },
+    {
+      "origin": "星",
+      "dest": "金平",
+      "n": 37
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市潮阳区东里镇",
+      "n": 37
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省梅州市丰顺县铁铺镇",
+      "n": 36
+    },
+    {
+      "origin": "金塔",
+      "dest": "广东省汕头市潮阳区东里镇",
+      "n": 36
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省汕头市潮阳区溪南镇",
+      "n": 36
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市澄海区官塘镇",
+      "n": 35
+    },
+    {
+      "origin": "泰",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 34
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 34
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 34
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 33
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 33
+    },
+    {
+      "origin": "吉隆坡",
+      "dest": "广东省汕头市澄海区莲下镇",
+      "n": 31
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市潮阳区溪南镇",
+      "n": 30
+    },
+    {
+      "origin": "叻坡",
+      "dest": "广东省潮州市潮安区彩塘镇",
+      "n": 30
+    },
+    {
+      "origin": "泰京",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 30
+    },
+    {
+      "origin": "泰国",
+      "dest": "广东省汕头市龙湖区外砂镇",
+      "n": 29
+    },
+    {
+      "origin": "泰",
+      "dest": "广东省汕头市澄海区隆都镇",
+      "n": 29
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市龙湖区",
+      "n": 28
+    },
+    {
+      "origin": "暹京",
+      "dest": "广东省梅州市丰顺县铁铺镇",
+      "n": 28
+    },
+    {
+      "origin": "泰",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 27
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市澄海区莲下镇",
+      "n": 27
+    },
+    {
+      "origin": "暹京",
+      "dest": "广东省汕头市澄海区隆都镇",
+      "n": 27
+    },
+    {
+      "origin": "吉隆坡",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 26
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省潮州市潮安区磷溪镇",
+      "n": 26
+    },
+    {
+      "origin": "叻云冰",
+      "dest": "广东省汕头市潮阳区莲上镇",
+      "n": 25
+    },
+    {
+      "origin": "暹京",
+      "dest": "广东省汕头市澄海区莲下镇",
+      "n": 24
+    },
+    {
+      "origin": "泰京",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 24
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市潮阳区莲上镇",
+      "n": 24
+    },
+    {
+      "origin": "暹京",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 23
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省揭阳市普宁市流沙西街道",
+      "n": 23
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市澄海区莲下镇",
+      "n": 23
+    },
+    {
+      "origin": "泰京",
+      "dest": "广东省汕头市潮阳区东里镇",
+      "n": 22
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市潮阳区溪南镇",
+      "n": 22
+    },
+    {
+      "origin": "柔佛",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 22
+    },
+    {
+      "origin": "新加坡",
+      "dest": "广东省揭阳市普宁市金石镇",
+      "n": 22
+    },
+    {
+      "origin": "暹京",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 22
+    },
+    {
+      "origin": "香港",
+      "dest": "广东省揭阳市普宁市金石镇",
+      "n": 21
+    },
+    {
+      "origin": "马来西亚",
+      "dest": "广东省揭阳市普宁市上华镇",
+      "n": 21
+    },
+    {
+      "origin": "泰京",
+      "dest": "广东省汕头市澄海区官塘镇",
+      "n": 21
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省汕头市龙湖区广益街道",
+      "n": 21
+    },
+    {
+      "origin": "新加坡",
+      "dest": "广东省潮州市潮安区霖磐镇",
+      "n": 21
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省汕头市潮阳区东里镇",
+      "n": 20
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省揭阳市普宁市登岗镇",
+      "n": 20
+    },
+    {
+      "origin": "新加坡",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 20
+    },
+    {
+      "origin": "叻坡",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 19
+    },
+    {
+      "origin": "暹京",
+      "dest": "广东省汕头市潮阳区东里镇",
+      "n": 19
+    },
+    {
+      "origin": "暹",
+      "dest": "广东省汕头市潮阳区盐鸿镇",
+      "n": 19
+    },
+    {
+      "origin": "新嘉坡",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 19
+    },
+    {
+      "origin": "蔴坡",
+      "dest": "广东省潮州市潮安区彩塘镇",
+      "n": 19
+    },
+    {
+      "origin": "叻",
+      "dest": "广东省潮州市潮安区意溪镇",
+      "n": 18
+    },
+    {
+      "origin": "暹罗",
+      "dest": "广东省汕头市龙湖区外砂镇",
+      "n": 17
+    },
+    {
+      "origin": "越",
+      "dest": "广东省揭阳市揭东区东凤镇",
+      "n": 17
+    },
+    {
+      "origin": "房哼",
+      "dest": "广东省潮州市潮安区江东镇",
+      "n": 17
+    },
+    {
+      "origin": "新加坡",
+      "dest": "广东省潮州市潮安区浮洋镇",
+      "n": 17
+    },
+    {
+      "origin": "香港",
+      "dest": "广东省潮州市潮安区磷溪镇",
+      "n": 16
+    }
+  ],
+  "total_letters": 9805
+};
+
+// 海外寄出地的 demo 坐标 — 基于历史地名常识 + Wikidata
+const OVERSEAS = {
+  "叻":     { lon: 103.82, lat:  1.35, full: "石叻 (新加坡)" },
+  "石叻":   { lon: 103.82, lat:  1.35, full: "石叻 (新加坡)" },
+  "新加坡": { lon: 103.82, lat:  1.35, full: "新加坡 Singapore" },
+  "星":     { lon: 103.82, lat:  1.35, full: "星洲 (新加坡)" },
+  "星洲":   { lon: 103.82, lat:  1.35, full: "星洲 (新加坡)" },
+  "泰":     { lon: 100.50, lat: 13.75, full: "泰国 (曼谷)" },
+  "泰国":   { lon: 100.50, lat: 13.75, full: "泰国 (曼谷)" },
+  "泰京":   { lon: 100.50, lat: 13.75, full: "泰京 (曼谷)" },
+  "暹":     { lon: 100.50, lat: 13.75, full: "暹罗 (泰国旧称)" },
+  "暹罗":   { lon: 100.50, lat: 13.75, full: "暹罗 (泰国旧称)" },
+  "吉隆":   { lon: 101.69, lat:  3.14, full: "吉隆坡 KL" },
+  "吉隆坡": { lon: 101.69, lat:  3.14, full: "吉隆坡 KL" },
+  "吧生":   { lon: 101.45, lat:  3.04, full: "吧生 Klang" },
+  "槟":     { lon: 100.30, lat:  5.41, full: "槟城 Penang" },
+  "槟城":   { lon: 100.30, lat:  5.41, full: "槟城 Penang" },
+  "越":     { lon: 106.66, lat: 10.82, full: "越南 (西贡)" },
+  "越南":   { lon: 106.66, lat: 10.82, full: "越南 (西贡)" },
+  "西贡":   { lon: 106.66, lat: 10.82, full: "西贡 Saigon" },
+  "印尼":   { lon: 106.85, lat: -6.21, full: "印尼 (雅加达)" },
+  "缅":     { lon:  96.16, lat: 16.87, full: "缅甸 (仰光)" },
+  "缅甸":   { lon:  96.16, lat: 16.87, full: "缅甸 (仰光)" },
+  "金塔":   { lon: 105.85, lat: 11.55, full: "金边 (柬埔寨)" },
+  "马来亚": { lon: 101.69, lat:  3.14, full: "马来亚 (KL)" },
+  "菲":     { lon: 121.00, lat: 14.59, full: "菲律宾 (马尼拉)" },
+  "菲律宾": { lon: 121.00, lat: 14.59, full: "菲律宾 (马尼拉)" },
+  "马尼拉": { lon: 121.00, lat: 14.59, full: "马尼拉" },
+  "港":     { lon: 114.17, lat: 22.32, full: "香港" },
+  "香港":   { lon: 114.17, lat: 22.32, full: "香港" },
+};
+
+function lookupOverseas(name) {
+  if (!name) return null;
+  if (OVERSEAS[name]) return OVERSEAS[name];
+  for (const key in OVERSEAS) {
+    if (name.indexOf(key) !== -1) return OVERSEAS[key];
+  }
+  return null;
+}
+
+// ── 地图渲染 ────────────────────────────────────────────────────
+// 多源底图: 国内访问 OSM 常被墙, 默认用 ArcGIS Online (国内通常可达)
+const baseLayers = {
+  "ArcGIS 灰底 (推荐)": L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    { attribution: '© Esri', maxZoom: 16 }
+  ),
+  "ArcGIS 地形": L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    { attribution: '© Esri', maxZoom: 18 }
+  ),
+  "ArcGIS 卫星": L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: '© Esri', maxZoom: 18 }
+  ),
+  "OpenStreetMap (可能被墙)": L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { attribution: '© OpenStreetMap', maxZoom: 18 }
+  ),
+};
+const map = L.map('map', {
+  center: [15, 110], zoom: 4,
+  layers: [baseLayers["ArcGIS 灰底 (推荐)"]],   // 默认底图
+});
+L.control.layers(baseLayers, null, { position: 'topright', collapsed: false }).addTo(map);
+
+// 1. 收件地标记 (蓝色, 真实坐标)
+const max_letters = Math.max(...DATA.destinations.map(d => d.letters), 1);
+DATA.destinations.forEach(d => {
+  if (!d.letters) return;
+  const r = 4 + 18 * Math.sqrt(d.letters / max_letters);
+  L.circleMarker([d.lat, d.lon], {
+    radius: r, color: '#1d4ed8', weight: 1,
+    fillColor: '#3b82f6', fillOpacity: 0.7,
+  }).bindPopup(`<b>${d.name || '(未命名)'}</b><br/>收到侨批: ${d.letters} 封<br/><small>PID: ${d.pid}</small>`)
+    .bindTooltip(`${(d.name||'').slice(-8)} (${d.letters})`)
+    .addTo(map);
+});
+
+// 2. 海外寄出地 (红色, demo 坐标 — 聚合)
+const overseas_used = new Map();
+DATA.flows.forEach(f => {
+  const ov = lookupOverseas(f.origin);
+  if (!ov) return;
+  const obj = overseas_used.get(ov.full) || { ov, n: 0 };
+  obj.n += f.n;
+  overseas_used.set(ov.full, obj);
+});
+const max_overseas = Math.max(...Array.from(overseas_used.values()).map(o=>o.n), 1);
+overseas_used.forEach(({ov, n}, full) => {
+  const r = 6 + 22 * Math.sqrt(n / max_overseas);
+  L.circleMarker([ov.lat, ov.lon], {
+    radius: r, color: '#7f1d1d', weight: 2,
+    fillColor: '#dc2626', fillOpacity: 0.75,
+  }).bindPopup(`<b>${full}</b><br/>寄出侨批 (聚合): <b>${n}</b> 封<br/><i>demo 坐标</i>`)
+    .bindTooltip(`${full} (${n})`)
+    .addTo(map);
+});
+
+// 3. 流线 — 海外 origin → 家乡 destination
+const dest_by_name = {};
+DATA.destinations.forEach(d => { if (d.name) dest_by_name[d.name] = d; });
+
+let visible_flows = 0;
+DATA.flows.forEach(f => {
+  const ov = lookupOverseas(f.origin);
+  const home = dest_by_name[f.dest];
+  if (!ov || !home) return;
+  visible_flows++;
+  const w = Math.max(0.5, Math.min(6, f.n / 80));
+  L.polyline([[ov.lat, ov.lon], [home.lat, home.lon]], {
+    color: '#fb8c00', weight: w, opacity: 0.5,
+  }).bindPopup(`<b>${f.origin}</b> → ${f.dest}<br/><b>${f.n}</b> 封侨批`)
+    .addTo(map);
+});
+
+// 4. 侧栏
+document.getElementById('total-letters').textContent = DATA.total_letters.toLocaleString();
+document.getElementById('n-dest').textContent = DATA.destinations.filter(d=>d.letters>0).length;
+document.getElementById('n-overseas').textContent = overseas_used.size;
+document.getElementById('n-flows').textContent = visible_flows;
+
+const tbl = document.getElementById('flow-tbl');
+DATA.flows.slice(0, 10).forEach(f => {
+  const row = tbl.insertRow();
+  row.insertCell().textContent = f.origin;
+  row.insertCell().textContent = "→";
+  const d = f.dest && f.dest.length > 12 ? f.dest.slice(-10) : (f.dest || '');
+  row.insertCell().textContent = d;
+  row.insertCell().textContent = f.n.toLocaleString();
+});
+
+// 适应全图
+const bounds = L.latLngBounds([]);
+DATA.destinations.forEach(d => { if (d.letters>0) bounds.extend([d.lat, d.lon]); });
+overseas_used.forEach(({ov}) => bounds.extend([ov.lat, ov.lon]));
+if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
+</script>
+</body>
+</html>

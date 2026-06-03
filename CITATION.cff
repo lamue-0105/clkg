@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software or its design in your research, please cite as below."
+title: "CLKG: Cultural Landscape Knowledge Graph"
+abstract: >-
+  CLKG is a multi-project, multi-modal knowledge graph infrastructure
+  for cultural heritage research. It provides a PostgreSQL + PostGIS
+  backend with a CIDOC-CRM-aligned ontology (CL-Onto), a Python ingest
+  pipeline supporting tabular, GIS, image, and document sources, and a
+  standardised data collection SOP for multi-collaborator heritage
+  digitization. Current project regions include Mustang (Nepal/Tibet),
+  Qiaopi (Chaoshan overseas Chinese remittance letters), and Xinjiang
+  (Silk Road heritage).
+type: software
+authors:
+  - given-names: lamue
+    email: shaotongdeyx@gmail.com
+repository-code: "https://github.com/lamue/clkg"
+license: MIT
+keywords:
+  - cultural heritage
+  - knowledge graph
+  - PostgreSQL
+  - PostGIS
+  - CIDOC CRM
+  - digital humanities
+  - spatio-temporal semantic alignment
+  - multimodal data
+  - cultural landscape
+date-released: "2026-06-03"
+version: "0.1.0"

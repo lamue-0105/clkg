@@ -1,0 +1,6 @@
+﻿字段名,英文名,字段含义,字段约束,数据类型,参考标准,填写规范,,,,,,,,,,,,,
+IIIF_ImageURI,图像访问链接,图像标准化访问地址,可选,字符串,IIIF Presentation API,完整 IIIF 图像服务 URL（含尺寸 / 格式参数）,,,,,,,,,,,,,
+ImageFormat,图像格式,图像文件格式,可选,字符串,IIIF,JPG/PNG/TIFF/JSON-LD,,,,,,,,,,,,,
+ImageRights,图像版权,图像使用权限,必选,字符串,IIIF,版权声明（如 CC BY-NC 4.0）,,,,,,,,,,,,,
+ImageDesc,图像语义描述,图像内容标准化描述,可选,字符串,IIIF,多语言标签（label/value 结构）,,,,,,,,,,,,,
+ImageResolution,图像分辨率,图像像素尺寸,可选,数值,IIIF,宽 × 高（如 4000×3000）,,,,,,,,,,,,,
