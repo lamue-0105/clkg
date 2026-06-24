@@ -6,6 +6,8 @@
     python -m ingest.cli verify <region>         # compare columns vs canonical schema
     python -m ingest.cli mustang [--rows N]      # ingest Mustang heritage CSV
     python -m ingest.cli qiaopi [--rows N]       # ingest Qiaopi xlsx
+    python -m ingest.cli xinjiang [--rows N]     # ingest Xinjiang heritage xlsx
+    python -m ingest.cli template [xlsx_path]    # ingest standard CLKG_采集模板.xlsx
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ from . import config, db, schema as schema_mod
 from .pipelines import mustang as mustang_pipeline
 from .pipelines import qiaopi as qiaopi_pipeline
 from .pipelines import xinjiang as xinjiang_pipeline
+from .pipelines import template as template_pipeline
 
 
 CLKG_ROOT = Path(__file__).resolve().parent.parent
@@ -201,6 +204,24 @@ def cmd_qiaopi(args) -> int:
     return 0
 
 
+def cmd_template(args) -> int:
+    xlsx_path: Path = args.xlsx or (CLKG_ROOT / "data_collection" / "CLKG_采集模板.xlsx")
+    if not xlsx_path.exists():
+        print(f"ERROR: template xlsx not found: {xlsx_path}", file=sys.stderr)
+        return 2
+    bid = uuid.UUID(args.batch_id) if args.batch_id else None
+    template_pipeline.run(
+        xlsx_path=xlsx_path,
+        region=args.region,
+        max_rows=args.rows,
+        enable_ner=(None if args.ner == "auto" else (args.ner == "on")),
+        batch_id=bid,
+        skip_example_row=not args.no_skip_example,
+        strict_crs=args.strict_crs,
+    )
+    return 0
+
+
 # ---------------------------------------------------------------------------- main
 
 def main(argv: list[str] | None = None) -> int:
@@ -271,6 +292,21 @@ def main(argv: list[str] | None = None) -> int:
     pq.add_argument("--ner", choices=["auto", "on", "off"], default="auto")
     pq.add_argument("--batch-id", type=str, default=None)
     pq.set_defaults(func=cmd_qiaopi)
+
+    pt = sub.add_parser("template", help="Run standard template (CLKG_采集模板.xlsx) ingest")
+    pt.add_argument("xlsx", type=Path, nargs="?", default=None,
+                    help="path to template xlsx (default: data_collection/CLKG_采集模板.xlsx)")
+    pt.add_argument("--region", type=str, default=None,
+                    help="override auto-detected region")
+    pt.add_argument("--rows", type=int, default=None,
+                    help="limit entity rows per sheet for testing")
+    pt.add_argument("--ner", choices=["auto", "on", "off"], default="auto")
+    pt.add_argument("--batch-id", type=str, default=None)
+    pt.add_argument("--no-skip-example", action="store_true",
+                    help="do NOT skip the gold-standard example row (for testing)")
+    pt.add_argument("--strict-crs", action="store_true",
+                    help="fail on GCJ-02/BD-09 coordinates (future: not yet enforced)")
+    pt.set_defaults(func=cmd_template)
 
     args = p.parse_args(argv)
     return args.func(args)
