@@ -87,3 +87,4 @@ ENV/
 # === 本地草稿 ===
 DRAFT_*.md
 notes_*.md
+data_collection/test_e2e.xlsx
