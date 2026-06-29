@@ -222,7 +222,7 @@ BEGIN
   WHERE s.batch_id = p_batch_id
   -- Idempotent re-run: skip rows that already exist (matches the schema's
   -- unique_stmt_check on subject+predicate+value+ref+vts+evidence).
-  ON CONFLICT ON CONSTRAINT unique_stmt_check DO NOTHING;
+  ON CONFLICT (subject_id, predicate, md5(object_value), object_entity_id, valid_time_start, evidence_id) DO NOTHING;
 
   GET DIAGNOSTICS v_rows_ok = ROW_COUNT;
 

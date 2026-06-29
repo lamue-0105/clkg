@@ -59,7 +59,13 @@ ALTER SEQUENCE entity_statement_statement_id_seq OWNED BY entity_statement.state
 
 ALTER TABLE entity_statement ADD CONSTRAINT entity_statement_object_entity_id_fkey FOREIGN KEY (object_entity_id) REFERENCES conceptual_entity(pid);
 ALTER TABLE entity_statement ADD CONSTRAINT entity_statement_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES conceptual_entity(pid) ON DELETE CASCADE;
-ALTER TABLE entity_statement ADD CONSTRAINT unique_stmt_check UNIQUE (subject_id, predicate, object_value, object_entity_id, valid_time_start, evidence_id);
+-- Idempotency key for re-insert. object_value is hashed (md5) so long literals
+-- (full poem / document text > 2704 bytes) don't exceed the btree index-row
+-- size limit. md5(NULL)=NULL preserves the original NULLS-DISTINCT semantics,
+-- so this is equivalent to the old UNIQUE constraint on existing data.
+-- Implemented as a UNIQUE INDEX because constraints can't span expressions.
+CREATE UNIQUE INDEX unique_stmt_check ON entity_statement
+  (subject_id, predicate, md5(object_value), object_entity_id, valid_time_start, evidence_id);
 
 CREATE INDEX IF NOT EXISTS idx_statement_predicate ON public.entity_statement USING btree (predicate);
 CREATE INDEX IF NOT EXISTS idx_statement_subject ON public.entity_statement USING btree (subject_id);
