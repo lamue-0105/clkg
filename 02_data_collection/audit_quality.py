@@ -6,7 +6,7 @@
     python audit_quality.py xinjiang
 
 输出：
-    ~/clkg/data_collection/quality-audit/{region}-{YYYY-MM-DD}.md
+    ~/clkg/02_data_collection/quality-audit/{region}-{YYYY-MM-DD}.md
 """
 from __future__ import annotations
 import sys
@@ -240,7 +240,7 @@ def render_markdown(region, results):
 
 
 def main(region):
-    out_dir = Path.home() / "clkg/data_collection/quality-audit"
+    out_dir = Path(__file__).resolve().parent / "quality-audit"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / f"{region}-{date.today().isoformat()}.md"
 
