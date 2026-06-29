@@ -28,7 +28,7 @@ from .pipelines import template as template_pipeline
 
 
 CLKG_ROOT = Path(__file__).resolve().parent.parent
-SQL_DIR   = CLKG_ROOT / "sql"
+SQL_DIR   = CLKG_ROOT / "01_sql"
 SQL_FILES_IN_ORDER = [
     "00_create_schema.sql",   # business tables (canonical, generated from real DB)
     "01_staging.sql",          # staging schema + audit
@@ -205,7 +205,7 @@ def cmd_qiaopi(args) -> int:
 
 
 def cmd_template(args) -> int:
-    xlsx_path: Path = args.xlsx or (CLKG_ROOT / "data_collection" / "CLKG_采集模板.xlsx")
+    xlsx_path: Path = args.xlsx or (CLKG_ROOT / "02_data_collection" / "CLKG_采集模板.xlsx")
     if not xlsx_path.exists():
         print(f"ERROR: template xlsx not found: {xlsx_path}", file=sys.stderr)
         return 2
@@ -237,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
     pds = sub.add_parser("dump_schema",
         help="Reverse-engineer canonical schema from a known-good DB into 00_create_schema.sql")
     pds.add_argument("region")
-    pds.add_argument("--out", default=None, help="output path (default: sql/00_create_schema.sql)")
+    pds.add_argument("--out", default=None, help="output path (default: 01_sql/00_create_schema.sql)")
     pds.set_defaults(func=cmd_dump_schema)
 
     pv = sub.add_parser("verify",
@@ -295,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
 
     pt = sub.add_parser("template", help="Run standard template (CLKG_采集模板.xlsx) ingest")
     pt.add_argument("xlsx", type=Path, nargs="?", default=None,
-                    help="path to template xlsx (default: data_collection/CLKG_采集模板.xlsx)")
+                    help="path to template xlsx (default: 02_data_collection/CLKG_采集模板.xlsx)")
     pt.add_argument("--region", type=str, default=None,
                     help="override auto-detected region")
     pt.add_argument("--rows", type=int, default=None,

@@ -262,6 +262,6 @@ line()
 order = ["填写说明", "Place_地点", "Document_文档", "Actor_人物", "Asset_资产", "军垦_事件", "军垦_口述史", "军垦_诗歌", "词表"]
 wb._sheets.sort(key=lambda s: order.index(s.title))
 wb.active = 0
-wb.save("/Users/lamue/clkg/data_collection/CLKG_采集模板.xlsx")
+wb.save("/Users/lamue/clkg/02_data_collection/CLKG_采集模板.xlsx")
 print("saved:", wb.sheetnames)
 print("named ranges:", list(wb.defined_names))
