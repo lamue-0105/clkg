@@ -102,7 +102,7 @@ VOCAB: dict[str, list[str]] = {
     "CRS":         ["WGS84", "GCJ-02", "BD-09", "CGCS2000",
                     "EPSG:32644", "EPSG:32645", "unk"],
     "layer":       ["单体", "群体", "区域"],
-    "heritage_lv": ["国家级", "自治区级", "省级", "市级", "县市级"],
+    "heritage_lv": ["世界级", "国家级", "省级", "自治区级", "市级", "县级"],
     "confidence":  ["1.0", "0.9", "0.7", "0.5"],
     "actor_role":  ["person", "family", "organization"],
     "doc_type":    ["专著", "期刊论文", "档案", "方志", "碑刻铭文", "契约文书",
