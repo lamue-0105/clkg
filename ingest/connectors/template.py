@@ -18,6 +18,7 @@ import openpyxl
 
 from ..collection_schema import (
     ALL_SHEETS,
+    EXTENSION_SHEETS,
     SHEETS_BY_NAME,
     ColumnDef,
     ColumnRole,
@@ -29,6 +30,8 @@ from ..staging import StatementRow
 log = logging.getLogger(__name__)
 
 # ---- known example-row fill color (EX_FILL from build_template.py) --------
+# Stored as the 6-hex RGB. openpyxl reads fills back as 8-hex ARGB
+# (e.g. "00FFF2CC" / "FFFFF2CC"), so always compare the trailing 6 hex.
 _EXAMPLE_FILL_RGB = "FFF2CC"
 
 # ---- geometry SRID mapping -------------------------------------------------
@@ -69,29 +72,38 @@ def _float_or_none(v: Any) -> Optional[float]:
         return None
 
 
+def _example_fill_match(cell) -> bool:
+    """True if a cell carries the gold-standard example fill (light yellow)."""
+    try:
+        if cell.fill and cell.fill.fgColor:
+            rgb = cell.fill.fgColor.rgb
+            # openpyxl returns 8-hex ARGB ("00FFF2CC"/"FFFFF2CC") or a non-str
+            # theme object — compare the trailing 6 hex (RGB), case-insensitive.
+            if isinstance(rgb, str) and rgb[-6:].upper() == _EXAMPLE_FILL_RGB:
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def _is_example_row(
     ws: openpyxl.worksheet.worksheet.Worksheet,
     row_idx: int,
     sheet_name: str,
     nk_col: int = 5,
 ) -> bool:
-    """Detect the gold-standard example row (row 2 in every sheet).
+    """Detect the gold-standard example row.
 
-    Three-layer defence:
-      1. Fill colour == EX_FILL ("FFF2CC") on col-1 cell
-      2. Row-index convention (always row 2)
-      3. Known example natural_key values
+    Content/format-based detection — robust to row insertion *and* deletion:
+      1. Fill colour == EX_FILL (light yellow) on the col-1 cell
+      2. natural_key matches the sheet's known example key
+
+    We deliberately do NOT treat "row 2" as the example by position alone.
+    The template instructions tell collectors to delete the example row before
+    submitting, which shifts their first real record up to row 2 — skipping it
+    by position would silently drop that record.
     """
-    try:
-        cell = ws.cell(row=row_idx, column=1)
-        if cell.fill and cell.fill.fgColor:
-            rgb = str(cell.fill.fgColor.rgb)
-            if rgb == _EXAMPLE_FILL_RGB:
-                return True
-    except Exception:
-        pass
-
-    if row_idx == 2:
+    if _example_fill_match(ws.cell(row=row_idx, column=1)):
         return True
 
     sd = SHEETS_BY_NAME.get(sheet_name)
@@ -116,9 +128,11 @@ def _detect_region(ws, sd: SheetDescriptor, max_scan: int = 50) -> Optional[str]
     cm = column_map(sd)
     region_col = next((c.index for c in sd.columns if c.role == ColumnRole.REGION), None)
     if region_col is None:
-        return None
+        # Extension sheets (flat event tables) carry no region column — fall back
+        # to the descriptor's fixed region.
+        return sd.default_region
     counter: Counter[str] = Counter()
-    for row_idx in range(3, min(ws.max_row or 0, max_scan + 3) + 1):
+    for row_idx in range(2, min(ws.max_row or 0, max_scan + 2) + 1):
         if _is_example_row(ws, row_idx, sd.sheet_name):
             continue
         v = _clean(ws.cell(row=row_idx, column=region_col).value)
@@ -155,27 +169,34 @@ def _emit_row_statements(
     sd: SheetDescriptor,
     region: str,
     ev_uri_base: str,
+    synthetic_ordinal: int = 0,
 ) -> list[StatementRow]:
     """Convert one template row into a list of StatementRows.
 
     Accumulates geometry (lon/lat/crs) and emits a single locatedAt statement
-    at the end.
+    at the end.  ``synthetic_ordinal`` is the 1-based position of this row among
+    the sheet's data rows; used to mint a natural_key for extension sheets that
+    lack a NATURAL_KEY column (e.g. 军垦_事件 → junken-evt-0001).
     """
     cm = column_map(sd)
     rows: list[StatementRow] = []
 
-    # -- extract identity columns first ---------------------------------------
+    # -- natural_key: from column, else synthesised by row order --------------
     nk_cols = [c for c in sd.columns if c.role == ColumnRole.NATURAL_KEY]
-    if not nk_cols:
+    if nk_cols:
+        nk = _clean(ws.cell(row=row_idx, column=nk_cols[0].index).value)
+    elif sd.synthetic_key_prefix:
+        nk = f"{sd.synthetic_key_prefix}-{synthetic_ordinal:04d}"
+    else:
         return rows
-    nk = _clean(ws.cell(row=row_idx, column=nk_cols[0].index).value)
     if nk is None:
         return rows
 
-    # entity_type
+    # entity_type: from column, else the descriptor's fixed default
     et_col = next((c for c in sd.columns if c.role == ColumnRole.ENTITY_TYPE), None)
     et_cell = _clean(ws.cell(row=row_idx, column=et_col.index).value) if et_col else None
-    type_abbr = et_cell or sd.entity_types[0]
+    type_abbr = (et_cell or sd.default_entity_type
+                 or (sd.entity_types[0] if sd.entity_types else "pl"))
 
     # temporal: try hasEra column first, else "unk"
     era_col = next((c for c in sd.columns if c.predicate == "hasEra"), None)
@@ -371,10 +392,13 @@ def _emit_row_statements(
                     stmt_value=geom_value,
                 ))
 
-    # -- apply row-level default confidence if set ----------------------------
+    # -- apply row-level confidence into each statement's value JSONB ----------
+    #    ingest_batch() reads stmt_value->>'confidence' (03_ingest_batch.sql),
+    #    defaulting to 1.0 when absent. StatementRow has no confidence field, so
+    #    the value must ride inside stmt_value to reach entity_statement.confidence.
     if confidence_val is not None:
         for r in rows:
-            r.confidence = confidence_val
+            r.stmt_value["confidence"] = confidence_val
 
     return rows
 
@@ -401,6 +425,7 @@ def _parse_sheet(
         and c.required
     ]
 
+    synth_ordinal = 0  # 1-based position among data rows; feeds synthetic keys
     for row_idx in range(2, ws.max_row + 1):  # row 1 = header
         if skip_example_row and _is_example_row(ws, row_idx, sd.sheet_name):
             continue
@@ -408,7 +433,11 @@ def _parse_sheet(
         if _is_empty_row(ws, row_idx, critical_cols):
             continue
 
-        entity_rows = _emit_row_statements(ws, row_idx, sd, region, ev_uri_base)
+        synth_ordinal += 1
+        entity_rows = _emit_row_statements(
+            ws, row_idx, sd, region, ev_uri_base,
+            synthetic_ordinal=synth_ordinal,
+        )
         rows.extend(entity_rows)
 
         if max_rows and len({r.ent_natural_key for r in rows}) >= max_rows:
@@ -462,7 +491,14 @@ def ingest_template_xlsx(
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     ev_uri_base = f"file://{xlsx_path.resolve()}"
 
-    target_sheets = sheet_names or [sd.sheet_name for sd in ALL_SHEETS]
+    # Default target = the four generic sheets, plus any project-extension
+    # sheets (军垦_*) that actually exist in this workbook.
+    if sheet_names:
+        target_sheets = sheet_names
+    else:
+        target_sheets = [sd.sheet_name for sd in ALL_SHEETS]
+        target_sheets += [sd.sheet_name for sd in EXTENSION_SHEETS
+                          if sd.sheet_name in wb.sheetnames]
 
     # --- region detection ----------------------------------------------------
     if region is None:

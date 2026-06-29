@@ -74,7 +74,7 @@ class ColumnDef:
 
 @dataclass
 class SheetDescriptor:
-    """Describes one of the four data-collection sheets."""
+    """Describes one collection sheet (generic or project-extension)."""
     sheet_name: str                     # e.g. "Place_地点"
     sheet_order: int                    # Tab order (0-based)
     tab_color: str                      # Hex color for sheet tab
@@ -82,6 +82,12 @@ class SheetDescriptor:
     columns: list[ColumnDef] = field(default_factory=list)
     example_row: list[Optional[str]] = field(default_factory=list)
     example_natural_key: str = ""       # For example-row content detection
+    # -- extension-sheet support (flat event tables without identity columns) --
+    default_region: Optional[str] = None        # used when no REGION column exists
+    default_entity_type: Optional[str] = None   # used when no ENTITY_TYPE column exists
+    synthetic_key_prefix: Optional[str] = None  # synthesize natural_key per data row
+                                                # when no NATURAL_KEY column exists
+                                                # (e.g. "junken-evt" → junken-evt-0001)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -335,6 +341,118 @@ _SHEET_ASSET = SheetDescriptor(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Project-extension sheets — 新疆军垦 (Xinjiang military reclamation)
+#
+# These are flat one-row-per-event tables. Unlike the four generic sheets they
+# carry NO 记录人/region/entity_type/natural_key identity columns, so the
+# descriptor supplies them as sheet-level defaults:
+#   • default_region       → ent_region for every row
+#   • default_entity_type  → ent_type_abbr for every row
+#   • synthetic_key_prefix → natural_key = "{prefix}-{NNNN}" by data-row order
+# 诗歌 is the exception: it already has the standard identity columns.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ---- 军垦_事件 (517 events from a 4-book compilation) ----------------------
+_SHEET_JUNKEN_EVENT = SheetDescriptor(
+    sheet_name="军垦_事件",
+    sheet_order=5,
+    tab_color="880000",
+    entity_types=["ev"],
+    default_region="xinjiang",
+    default_entity_type="ev",
+    synthetic_key_prefix="junken-evt",
+    columns=[
+        ColumnDef(1,  "时代_历史时期",   "hasEra",           "历史时期",   ColumnRole.VALUE,       required=True,  note="如 战国/西汉/奠基时期"),
+        ColumnDef(2,  "时间_具体年份",   "hasShownDate",     "具体年份",   ColumnRole.VALUE,                       note="如 前169年/1949年"),
+        ColumnDef(3,  "发起人",          "hasActor",         "发起人",     ColumnRole.VALUE,                       note="发起人或行动主体"),
+        ColumnDef(4,  "承受人",          "hasRecipient",     "承受人",     ColumnRole.VALUE,                       note="承受人（如适用）"),
+        ColumnDef(5,  "事件描述",        "hasDescription",   "事件描述",   ColumnRole.VALUE,       required=True,  note="简要描述事件内容", width=30),
+        ColumnDef(6,  "地点",            "hasAddress",       "地点",       ColumnRole.VALUE,                       note="具体区域或垦区名称"),
+        ColumnDef(7,  "物",              "hasObject",        "物",         ColumnRole.VALUE,                       note="文物、概念、物质实体"),
+        ColumnDef(8,  "文化价值",        "hasCulturalValue", "文化价值",   ColumnRole.VALUE,                       note="精神内涵、象征意义等"),
+        ColumnDef(9,  "屯垦制度",        "hasInstitution",   "屯垦制度",   ColumnRole.VALUE,                       note="政策、组织形式等"),
+        ColumnDef(10, "source_name_来源", "",                "来源",       ColumnRole.SOURCE_NAME, required=True,  note="书名、页码、作者等"),
+        ColumnDef(11, "著录人",          "",                 "著录人",     ColumnRole.META,        required=True,  note="数据录入者"),
+        ColumnDef(12, "出处",            "hasReference",     "出处",       ColumnRole.VALUE,                       note="资料来源出处"),
+    ],
+    example_row=[
+        "战国", "", "商鞅", "秦国军民", "商鞅系统阐述农战思想", "秦国", "农战概念", "",
+        "战国农战政策", "《商君书·农战》", "辛佳丽", "《新疆兵团屯垦戍边史》",
+    ],
+)
+
+# ---- 军垦_口述史 (2931 oral-history events) --------------------------------
+_SHEET_JUNKEN_ORAL = SheetDescriptor(
+    sheet_name="军垦_口述史",
+    sheet_order=6,
+    tab_color="884400",
+    entity_types=["ev"],
+    default_region="xinjiang",
+    default_entity_type="ev",
+    synthetic_key_prefix="junken-oral",
+    columns=[
+        ColumnDef(1,  "章",       "hasChapter",     "章",         ColumnRole.VALUE,                      note="章节信息"),
+        ColumnDef(2,  "节",       "hasSection",     "节",         ColumnRole.VALUE,                      note="节信息"),
+        ColumnDef(3,  "小节",     "hasSubsection",  "小节",       ColumnRole.VALUE,                      note="小节信息"),
+        ColumnDef(4,  "口述者",   "hasSpeaker",     "口述者",     ColumnRole.VALUE,      required=True,  note="口述者姓名"),
+        ColumnDef(5,  "口述者身份", "hasSpeakerRole", "口述者身份", ColumnRole.VALUE,                    note="口述者身份描述"),
+        ColumnDef(6,  "采访人",   "hasInterviewer", "采访人",     ColumnRole.VALUE,                      note="采访人姓名"),
+        ColumnDef(7,  "时间",     "hasShownDate",   "时间",       ColumnRole.VALUE,                      note="事件发生时间"),
+        ColumnDef(8,  "时代",     "hasEra",         "时代",       ColumnRole.VALUE,      required=True,  note="时代分期"),
+        ColumnDef(9,  "地点",     "hasAddress",     "地点",       ColumnRole.VALUE,                      note="事件发生地点"),
+        ColumnDef(10, "人物",     "hasActor",       "人物",       ColumnRole.VALUE,                      note="事件涉及人物"),
+        ColumnDef(11, "物品",     "hasObject",      "物品",       ColumnRole.VALUE,                      note="涉及物品"),
+        ColumnDef(12, "概念",     "hasConcept",     "概念",       ColumnRole.VALUE,                      note="涉及概念"),
+        ColumnDef(13, "触发词",   "hasTrigger",     "触发词",     ColumnRole.VALUE,                      note="触发词"),
+        ColumnDef(14, "行动主体", "hasAgent",       "行动主体",   ColumnRole.VALUE,                      note="行动主体"),
+        ColumnDef(15, "事件类型", "hasEventType",   "事件类型",   ColumnRole.VALUE,                      note="事件类型代码"),
+        ColumnDef(16, "事件描述", "hasDescription", "事件描述",   ColumnRole.VALUE,      required=True,  note="事件详细描述", width=30),
+    ],
+    example_row=[
+        "奠基(1949-1954)", "向西开拔", "（一）", "刘双全", "司令员", "李霞等",
+        "1949年下半年", "奠基时期", "青海；西宁", "", "", "", "绕道青海", "部队",
+        "MigrationEvent", "部队从青海西宁绕道前进",
+    ],
+)
+
+# ---- 军垦_诗歌 (poems; standard identity columns present) -------------------
+_SHEET_JUNKEN_POEM = SheetDescriptor(
+    sheet_name="军垦_诗歌",
+    sheet_order=7,
+    tab_color="886600",
+    entity_types=["doc"],
+    example_natural_key="poem-001",
+    columns=[
+        ColumnDef(1,  "记录人*",              "",                "记录人",     ColumnRole.META,        required=True,  note="校对人/记录人"),
+        ColumnDef(2,  "采集日期*",            "",                "采集日期",   ColumnRole.META,        required=True,  note="YYYY-MM-DD"),
+        ColumnDef(3,  "region*",             "",                "region",     ColumnRole.REGION,      required=True,  vocab_key="region",      note="填 xinjiang"),
+        ColumnDef(4,  "entity_type*",         "",                "entity_type", ColumnRole.ENTITY_TYPE, required=True, vocab_key="entity_type", note="统一填 doc"),
+        ColumnDef(5,  "natural_key*",         "",                "natural_key", ColumnRole.NATURAL_KEY, required=True, note="填原始数据 id，如 poem-001"),
+        ColumnDef(6,  "hasTitle_题名*",        "hasTitle",        "题名",       ColumnRole.VALUE,       required=True,  note="诗歌标题"),
+        ColumnDef(7,  "hasAuthor_作者",        "hasAuthor",       "作者",       ColumnRole.VALUE,                       note="诗歌作者"),
+        ColumnDef(8,  "hasEra_时代",           "hasEra",          "时代",       ColumnRole.VALUE,                       note="如 汉/唐/清"),
+        ColumnDef(9,  "hasFullText_正文",      "hasFullText",     "正文",       ColumnRole.VALUE,       width=30,        note="诗歌全文"),
+        ColumnDef(10, "hasAbstract_例证",      "hasAbstract",     "例证",       ColumnRole.VALUE,       width=24,        note="例证/简要说明"),
+        ColumnDef(11, "hasPlace_地名",         "mentionsPlace",   "地名",       ColumnRole.VALUE,                       note="诗句中提及的地名"),
+        ColumnDef(12, "lon_经度",              "",                "经度",       ColumnRole.LON,                         note="古地名对应今经纬度"),
+        ColumnDef(13, "lat_纬度",              "",                "纬度",       ColumnRole.LAT,                         note="古地名对应今经纬度"),
+        ColumnDef(14, "CRS_坐标系",            "",                "坐标系",     ColumnRole.CRS,         vocab_key="CRS", note="填 WGS84"),
+        ColumnDef(15, "hasReference_出处",     "hasReference",    "出处",       ColumnRole.VALUE,                       note="诗歌来源文献"),
+        ColumnDef(16, "hasEmotion_情感极性",   "hasEmotion",      "情感极性",   ColumnRole.VALUE,                       note="正向/负向"),
+        ColumnDef(17, "hasEmotionScore_极性得分", "hasEmotionScore", "极性得分", ColumnRole.VALUE,                     note="情感得分"),
+        ColumnDef(18, "hasEmotionType_情绪类别", "hasEmotionType", "情绪类别",  ColumnRole.VALUE,                       note="豪迈雄浑/苍凉悲悼等"),
+        ColumnDef(19, "hasIdentity_身份",      "hasIdentity",     "身份",       ColumnRole.VALUE,                       note="作者身份判断"),
+        ColumnDef(20, "hasNotes_备注",         "hasNotes",        "备注",       ColumnRole.VALUE,       width=18),
+    ],
+    example_row=[
+        "陈东豪", "2026-07-01", "xinjiang", "doc", "poem-001", "西极天马歌", "刘彻", "汉",
+        "天马徕兮从西极...", "汉武虽通西域，本人未至", "西极", "", "", "", "《全汉三国晋南北朝诗》",
+        "正向", "0.95", "豪迈雄浑", "想象", "汉武虽通西域，本人未至",
+    ],
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Registry of all sheets (ordered by tab order)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -345,7 +463,18 @@ ALL_SHEETS: list[SheetDescriptor] = [
     _SHEET_ASSET,
 ]
 
-SHEETS_BY_NAME: dict[str, SheetDescriptor] = {s.sheet_name: s for s in ALL_SHEETS}
+# Project-specific extension sheets. Generated into the template and recognised
+# by the connector, but NOT part of the default ingest target — only ingested
+# when present in the workbook (see connectors/template.py).
+EXTENSION_SHEETS: list[SheetDescriptor] = [
+    _SHEET_JUNKEN_EVENT,
+    _SHEET_JUNKEN_ORAL,
+    _SHEET_JUNKEN_POEM,
+]
+
+SHEETS_BY_NAME: dict[str, SheetDescriptor] = {
+    s.sheet_name: s for s in (ALL_SHEETS + EXTENSION_SHEETS)
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

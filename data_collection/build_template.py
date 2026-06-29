@@ -21,7 +21,9 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.comments import Comment
 
-from ingest.collection_schema import ALL_SHEETS, VOCAB, VOCAB_NOTES, ColumnDef
+from ingest.collection_schema import (
+    ALL_SHEETS, EXTENSION_SHEETS, VOCAB, VOCAB_NOTES, ColumnDef,
+)
 
 FONT = "Arial"
 REQ_FILL = PatternFill("solid", fgColor="C00000")      # required header = dark red
@@ -92,8 +94,10 @@ def build_sheet(name, tab, columns: list[ColumnDef], example):
     ws.row_dimensions[1].height = 42
     return ws
 
-# ---------------------------------------------------------------- Place 地点
-for sd in ALL_SHEETS:
+# ---------------------------------------------------------------- collection sheets
+# Generic four + 新疆军垦 extension sheets, all from collection_schema (single
+# source of truth — shared with connectors/template.py so they never drift).
+for sd in ALL_SHEETS + EXTENSION_SHEETS:
     build_sheet(sd.sheet_name, sd.tab_color, sd.columns, sd.example_row)
 
 # ---------------------------------------------------------------- 填写说明 (instructions)
@@ -255,7 +259,7 @@ line("  · Document 表无空间字段，不存在此约束。")
 line()
 
 # ---------------------------------------------------------------- order & save
-order = ["填写说明", "Place_地点", "Document_文档", "Actor_人物", "Asset_资产", "词表"]
+order = ["填写说明", "Place_地点", "Document_文档", "Actor_人物", "Asset_资产", "军垦_事件", "军垦_口述史", "军垦_诗歌", "词表"]
 wb._sheets.sort(key=lambda s: order.index(s.title))
 wb.active = 0
 wb.save("/Users/lamue/clkg/data_collection/CLKG_采集模板.xlsx")
