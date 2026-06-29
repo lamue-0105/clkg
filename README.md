@@ -42,21 +42,31 @@ clkg/
 │   └── watchfolder.py     inbox/ daemon
 │
 ├── sql/                   PostgreSQL DDL
+│   ├── 00_create_schema.sql three-table CL-Onto schema
 │   ├── 01_staging.sql     staging schema
 │   ├── 02_pid_minter.sql  region-agnostic PID minter (SECURITY DEFINER)
 │   ├── 03_ingest_batch.sql single-transaction promotion to business tables
-│   └── 04_grants.sql      role permissions
+│   ├── 04_grants.sql      role permissions
+│   └── smoke_test/        standalone PG-side smoke / maintenance SQL
 │
-├── data_collection/       Multi-collaborator data collection
+├── data_collection/       Multi-collaborator collection toolkit
 │   ├── SOP_数据采集.md     8-section standard operating procedure (Chinese)
-│   ├── CLKG_采集模板.xlsx  4 collection sheets + vocab + filled instructions
-│   ├── build_template.py  template generator
+│   ├── CLKG_采集模板.xlsx  collection sheets + 军垦 extension + vocab
+│   ├── build_template.py  template generator (from ingest.collection_schema)
 │   ├── audit_quality.py   6-dimension data quality self-check
-│   └── 会议速览_招募.md     1-page recruitment briefing
+│   ├── export_authority.py authority-list exporter
+│   ├── 会议速览_招募.md     1-page recruitment briefing
+│   └── quality-audit/     per-project audit reports (local only)
 │
-├── smoke_test/            standalone PG-side smoke tests
 ├── docs/                  design documents
-├── demo_queries.sql       example queries
+│   ├── 技术说明与实验设计手册.md  main planning manual
+│   ├── inventory.md       data-asset inventory
+│   └── paper/             Heritage Science drafts + 投稿定位
+│
+├── reports/               run reports (REPORT_*.md / .html)
+├── viz/                   demo visualizations + presentation + demo_queries.sql
+├── design_legacy/         early schema design (archived CSVs)
+├── data/                  raw / intermediate research data (gitignored, local only)
 └── requirements.txt
 ```
 

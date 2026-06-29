@@ -10,9 +10,9 @@
 *.pem
 *.key
 
-# === 数据文件（含版权或个人身份信息）===
-data_collection/权威清单_*.csv
-data_collection/权威实体清单.xlsx
+# === 数据文件（原始/版权/个人数据——整个 data/ 目录不纳入版本库）===
+/data/
+# 采集质量审计（个人记录，保留目录占位但不上传内容）
 data_collection/quality-audit/*.md
 !data_collection/quality-audit/.gitkeep
 
@@ -87,4 +87,3 @@ ENV/
 # === 本地草稿 ===
 DRAFT_*.md
 notes_*.md
-data_collection/test_e2e.xlsx
