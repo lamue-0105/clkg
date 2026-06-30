@@ -284,7 +284,101 @@ def build_crm_table() -> tuple[str, str]:
     return "\n".join(md), "\n".join(csv)
 
 
+def _class_attr_counts() -> dict[str, list[tuple[str, int]]]:
+    """{entity_type: [(datatype_predicate, count)...] 降序}。"""
+    agg: dict[str, dict[str, int]] = {}
+    for r in REGIONS:
+        try:
+            conn = psycopg.connect(host=config.PG_HOST, port=config.PG_PORT,
+                user=config.PG_USER, password=config.PG_PASSWORD, dbname=f"{r}_cl_kg")
+        except Exception:
+            continue
+        with conn, conn.cursor() as cur:
+            cur.execute("""SELECT sub.entity_type, s.predicate, count(*)
+              FROM entity_statement s JOIN conceptual_entity sub ON s.subject_id=sub.pid
+              WHERE s.object_value IS NOT NULL AND s.object_entity_id IS NULL
+                AND s.object_geometry IS NULL
+              GROUP BY 1,2""")
+            for t, p, n in cur.fetchall():
+                agg.setdefault(t, {}).setdefault(p, 0)
+                agg[t][p] += n
+    return {t: sorted(d.items(), key=lambda x: -x[1]) for t, d in agg.items()}
+
+
+def _esc(s: str) -> str:
+    return str(s).replace('"', "'")
+
+
+def build_vowl_dot(top_k: int = 3) -> str:
+    """VOWL 风格：类=蓝圆 · 对象属性=蓝标签节点 · 数据属性=绿标签→黄类型框。力导向(neato)。"""
+    inv = inventory()
+    zh = _zh_labels()
+    L = ['digraph VOWL {',
+         '  layout=neato; overlap=false; splines=true; bgcolor="white"; sep="+8";',
+         '  node[fontname="PingFang SC",fontsize=11,penwidth=0.8];',
+         '  edge[color="#555555",arrowsize=0.7];']
+    # 类（蓝圆）
+    for t, (cn, czh, _) in CLASSES.items():
+        L.append(f'  {cn}[shape=circle,style=filled,fillcolor="#AFCBEC",width=1.15,'
+                 f'fixedsize=true,label="{czh}\\n{cn}"];')
+    for extra in ("Geometry", "Evidence"):
+        L.append(f'  {extra}[shape=circle,style=filled,fillcolor="#AFCBEC",width=1.0,'
+                 f'fixedsize=true,label="{extra}"];')
+    i = 0
+    # 对象属性（蓝标签节点，class→prop→class）
+    for p, a in inv.items():
+        if not a["ref"]:
+            continue
+        for st in a["subj"]:
+            for ot in a["objt"]:
+                if st in CLASSES and ot in CLASSES:
+                    op = f"op{i}"; i += 1
+                    L.append(f'  {op}[shape=box,style=filled,fillcolor="#A9C7F0",'
+                             f'label="{_esc(p)}",fontsize=9,height=0.22];')
+                    L.append(f'  {CLASSES[st][0]} -> {op}[arrowhead=none];')
+                    L.append(f'  {op} -> {CLASSES[ot][0]};')
+    # locatedAt → Geometry
+    for p, a in inv.items():
+        if a["geo"]:
+            for t in a["subj"]:
+                if t in CLASSES:
+                    op = f"op{i}"; i += 1
+                    L.append(f'  {op}[shape=box,style=filled,fillcolor="#A9C7F0",'
+                             f'label="locatedAt",fontsize=9,height=0.22];')
+                    L.append(f'  {CLASSES[t][0]} -> {op}[arrowhead=none]; {op} -> Geometry;')
+            break
+    # 数据属性（每类 top_k，绿标签→黄类型框）
+    attrs = _class_attr_counts()
+    j = 0
+    for t, lst in attrs.items():
+        if t not in CLASSES:
+            continue
+        for pred, _cnt in lst[:top_k]:
+            dp, yb = f"dp{j}", f"yb{j}"; j += 1
+            rng = "decimal" if pred in NUMERIC else "string"
+            L.append(f'  {dp}[shape=box,style=filled,fillcolor="#9BCB6A",'
+                     f'label="{_esc(zh.get(pred, pred))}",fontsize=9,height=0.22];')
+            L.append(f'  {yb}[shape=box,style=filled,fillcolor="#FFCC33",'
+                     f'label="{rng}",fontsize=9,height=0.22,width=0.5];')
+            L.append(f'  {CLASSES[t][0]} -> {dp}[arrowhead=none]; {dp} -> {yb};')
+    L.append("}")
+    return "\n".join(L)
+
+
 def main(argv: list[str]) -> int:
+    if "--vowl" in argv:
+        import subprocess
+        d = Path(__file__).resolve().parent.parent / "03_docs" / "ontology"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "clkg-vowl.dot").write_text(build_vowl_dot(), encoding="utf-8")
+        for fmt in ("svg", "png"):
+            try:
+                subprocess.run(["neato", f"-T{fmt}", str(d / "clkg-vowl.dot"),
+                                "-o", str(d / f"clkg-vowl.{fmt}")], check=True)
+            except Exception as e:
+                print(f"渲染 {fmt} 失败: {e}")
+        print(f"✅ {d}/clkg-vowl.svg / .png（VOWL 风格）")
+        return 0
     if "--crm" in argv:
         md, csv = build_crm_table()
         d = Path(__file__).resolve().parent.parent / "03_docs" / "ontology"
