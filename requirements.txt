@@ -11,3 +11,4 @@ shapely>=2.0
 python-docx>=1.0
 markdown>=3.5
 openpyxl>=3.1
+rdflib>=7.0

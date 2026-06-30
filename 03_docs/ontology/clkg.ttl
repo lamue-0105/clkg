@@ -1,0 +1,466 @@
+@prefix clkg: <https://w3id.org/clkg/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix geo:  <http://www.opengis.net/ont/geosparql#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix crm:  <http://www.cidoc-crm.org/cidoc-crm/> .
+
+
+<https://w3id.org/clkg/ontology> a owl:Ontology ;
+    rdfs:label "CL-Onto · 文化景观知识图谱本体"@zh ;
+    owl:versionInfo "0.1" ;
+    rdfs:comment "CIDOC-CRM 精简对齐 + PROV-O 溯源 + 4D-fluent 时态 + RDF-star。由 ingest.ontology 从活库自动生成。"@zh .
+
+# ── 类（Classes）──
+clkg:Place a owl:Class ;
+    rdfs:label "地点"@zh, "Place"@en ;
+    skos:closeMatch crm:E53_Place ;
+    rdfs:comment "entity_type=pl"@zh .
+
+clkg:CulturalLandscapeUnit a owl:Class ;
+    rdfs:label "文化景观单元"@zh, "CulturalLandscapeUnit"@en ;
+    skos:closeMatch crm:E27_Site ;
+    rdfs:comment "entity_type=clu"@zh .
+
+clkg:Actor a owl:Class ;
+    rdfs:label "行动者"@zh, "Actor"@en ;
+    skos:closeMatch crm:E39_Actor ;
+    rdfs:comment "entity_type=ac"@zh .
+
+clkg:Document a owl:Class ;
+    rdfs:label "文档"@zh, "Document"@en ;
+    skos:closeMatch crm:E31_Document ;
+    rdfs:comment "entity_type=doc"@zh .
+
+clkg:Event a owl:Class ;
+    rdfs:label "事件"@zh, "Event"@en ;
+    skos:closeMatch crm:E5_Event ;
+    rdfs:comment "entity_type=ev"@zh .
+
+clkg:DigitalImage a owl:Class ;
+    rdfs:label "图像"@zh, "DigitalImage"@en ;
+    skos:closeMatch crm:E36_Visual_Item ;
+    rdfs:comment "entity_type=img"@zh .
+
+clkg:Evidence a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:label "证据/溯源"@zh, "Evidence"@en .
+
+# ── 对象属性 / 关系边（9）──
+clkg:carriedOutBy a owl:ObjectProperty ;
+    rdfs:domain clkg:Event ;
+    rdfs:range clkg:Actor ;
+    skos:closeMatch crm:P14_carried_out_by ;
+    rdfs:comment "272 statements"@en .
+
+clkg:containsPlace a owl:ObjectProperty ;
+    rdfs:domain clkg:CulturalLandscapeUnit ;
+    rdfs:range clkg:Place ;
+    skos:closeMatch crm:P89_falls_within ;
+    rdfs:comment "682 statements"@en .
+
+clkg:hasDestinationPlace a owl:ObjectProperty ;
+    rdfs:label "寄达地(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range clkg:Place ;
+    rdfs:comment "12391 statements"@en .
+
+clkg:hasOriginPlace a owl:ObjectProperty ;
+    rdfs:label "寄出地(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range clkg:Place ;
+    rdfs:comment "9805 statements"@en .
+
+clkg:hasRecipient a owl:ObjectProperty ;
+    rdfs:label "收件人(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range clkg:Actor ;
+    rdfs:comment "13446 statements"@en .
+
+clkg:hasSender a owl:ObjectProperty ;
+    rdfs:label "寄件人(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range clkg:Actor ;
+    rdfs:comment "13402 statements"@en .
+
+clkg:mentionsGroup a owl:ObjectProperty ;
+    rdfs:domain clkg:Event ;
+    rdfs:range clkg:Actor ;
+    rdfs:comment "190 statements"@en .
+
+clkg:mentionsPlaceEntity a owl:ObjectProperty ;
+    rdfs:domain clkg:Document ;
+    rdfs:range clkg:Place ;
+    rdfs:comment "4100 statements"@en .
+
+clkg:tookPlaceIn a owl:ObjectProperty ;
+    rdfs:domain clkg:Event ;
+    rdfs:range clkg:Place ;
+    skos:closeMatch crm:P7_took_place_at ;
+    rdfs:comment "231 statements"@en .
+
+# ── 空间属性（1）──
+clkg:locatedAt a owl:ObjectProperty ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:CulturalLandscapeUnit clkg:DigitalImage clkg:Document clkg:Place ) ] ;
+    rdfs:range geo:Geometry ;
+    skos:closeMatch crm:P168_place_is_defined_by ;
+    rdfs:comment "object_geometry, SRID 4326 (WGS84)"@en .
+
+# ── 数据属性 / 字面值（76）──
+clkg:capturedAt a owl:DatatypeProperty ;
+    rdfs:label "拍摄时间"@zh ;
+    rdfs:domain clkg:DigitalImage ;
+    rdfs:range xsd:string .
+
+clkg:hasAbstract a owl:DatatypeProperty ;
+    rdfs:label "内容摘要"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasAddress a owl:DatatypeProperty ;
+    rdfs:label "地址"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:Event clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasAdminCode a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasAgent a owl:DatatypeProperty ;
+    rdfs:label "行动主体"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasAmount a owl:DatatypeProperty ;
+    rdfs:label "金额(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:decimal .
+
+clkg:hasArea a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:decimal .
+
+clkg:hasAuthor a owl:DatatypeProperty ;
+    rdfs:label "作者创建者"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasBeneficiary a owl:DatatypeProperty ;
+    rdfs:label "承受人"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasCategoryType a owl:DatatypeProperty ;
+    rdfs:label "遗产类别"@zh ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasChapter a owl:DatatypeProperty ;
+    rdfs:label "章"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasCollectionNumber a owl:DatatypeProperty ;
+    rdfs:label "馆藏号"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasConcept a owl:DatatypeProperty ;
+    rdfs:label "概念"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasConvertedAmount a owl:DatatypeProperty ;
+    rdfs:label "折算(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:decimal .
+
+clkg:hasCountry a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasCounty a owl:DatatypeProperty ;
+    rdfs:label "县区"@zh ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasCulturalValue a owl:DatatypeProperty ;
+    rdfs:label "文化价值"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasCurrency a owl:DatatypeProperty ;
+    rdfs:label "币种(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasDescription a owl:DatatypeProperty ;
+    rdfs:label "描述"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:CulturalLandscapeUnit clkg:Event clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasDistrict a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasEmotion a owl:DatatypeProperty ;
+    rdfs:label "情感极性"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasEmotionScore a owl:DatatypeProperty ;
+    rdfs:label "极性得分"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:decimal .
+
+clkg:hasEmotionType a owl:DatatypeProperty ;
+    rdfs:label "情绪类别"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasEnvironment a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasEra a owl:DatatypeProperty ;
+    rdfs:label "年代"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:Document clkg:Event clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasEventType a owl:DatatypeProperty ;
+    rdfs:label "事件类型"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasFileName a owl:DatatypeProperty ;
+    rdfs:label "文件名"@zh ;
+    rdfs:domain clkg:DigitalImage ;
+    rdfs:range xsd:string .
+
+clkg:hasFilePath a owl:DatatypeProperty ;
+    rdfs:label "路径"@zh ;
+    rdfs:domain clkg:DigitalImage ;
+    rdfs:range xsd:string .
+
+clkg:hasFileSize a owl:DatatypeProperty ;
+    rdfs:domain clkg:DigitalImage ;
+    rdfs:range xsd:string .
+
+clkg:hasFileType a owl:DatatypeProperty ;
+    rdfs:label "类型"@zh ;
+    rdfs:domain clkg:DigitalImage ;
+    rdfs:range xsd:string .
+
+clkg:hasFormalDate a owl:DatatypeProperty ;
+    rdfs:label "标准化日期"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasFullText a owl:DatatypeProperty ;
+    rdfs:label "全文转写"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:Document clkg:Event ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasGazettedBatch a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasGazettedDate a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasHeritageCode a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasHeritageLevel a owl:DatatypeProperty ;
+    rdfs:label "保护级别"@zh ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasIdentity a owl:DatatypeProperty ;
+    rdfs:label "身份"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasInitiator a owl:DatatypeProperty ;
+    rdfs:label "发起人"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasInstitution a owl:DatatypeProperty ;
+    rdfs:label "屯垦制度"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasInterviewer a owl:DatatypeProperty ;
+    rdfs:label "采访人"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasLayer a owl:DatatypeProperty ;
+    rdfs:label "层级"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:CulturalLandscapeUnit clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasName a owl:DatatypeProperty ;
+    rdfs:label "名称"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:Actor clkg:CulturalLandscapeUnit clkg:Event clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasNote a owl:DatatypeProperty ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:CulturalLandscapeUnit clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasNotes a owl:DatatypeProperty ;
+    rdfs:label "备注"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasObject a owl:DatatypeProperty ;
+    rdfs:label "物"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasObjectType a owl:DatatypeProperty ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasPaidAmount a owl:DatatypeProperty ;
+    rdfs:label "实付(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:decimal .
+
+clkg:hasParticipantName a owl:DatatypeProperty ;
+    rdfs:label "人物"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasPrefecture a owl:DatatypeProperty ;
+    rdfs:label "省州"@zh ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasPreservationState a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasProfession a owl:DatatypeProperty ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasProtectionFacility a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasQualityFlag a owl:DatatypeProperty ;
+    rdfs:domain clkg:CulturalLandscapeUnit ;
+    rdfs:range xsd:string .
+
+clkg:hasRecord a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasRecorder a owl:DatatypeProperty ;
+    rdfs:domain clkg:CulturalLandscapeUnit ;
+    rdfs:range xsd:string .
+
+clkg:hasReference a owl:DatatypeProperty ;
+    rdfs:label "著录参考"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:Document clkg:Event clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasReplyDate a owl:DatatypeProperty ;
+    rdfs:label "回批日期(侨批)"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasSection a owl:DatatypeProperty ;
+    rdfs:label "节"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasShapeArea a owl:DatatypeProperty ;
+    rdfs:domain clkg:CulturalLandscapeUnit ;
+    rdfs:range xsd:decimal .
+
+clkg:hasShapeLength a owl:DatatypeProperty ;
+    rdfs:domain clkg:CulturalLandscapeUnit ;
+    rdfs:range xsd:decimal .
+
+clkg:hasShownDate a owl:DatatypeProperty ;
+    rdfs:label "原件题署日期"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:Document clkg:Event ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasSignage a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasSpeaker a owl:DatatypeProperty ;
+    rdfs:label "口述者"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasSpeakerRole a owl:DatatypeProperty ;
+    rdfs:label "口述者身份"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasSpecialUnit a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasSubsection a owl:DatatypeProperty ;
+    rdfs:label "小节"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasSurveyDate a owl:DatatypeProperty ;
+    rdfs:label "调查日期"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:CulturalLandscapeUnit clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasSurveyHistory a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasSurveyType a owl:DatatypeProperty ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasTimeSpan a owl:DatatypeProperty ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasTitle a owl:DatatypeProperty ;
+    rdfs:label "标题"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
+
+clkg:hasTown a owl:DatatypeProperty ;
+    rdfs:label "乡镇"@zh ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:hasTrigger a owl:DatatypeProperty ;
+    rdfs:label "触发词"@zh ;
+    rdfs:domain clkg:Event ;
+    rdfs:range xsd:string .
+
+clkg:hasType a owl:DatatypeProperty ;
+    rdfs:label "类型"@zh ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( clkg:CulturalLandscapeUnit clkg:Event clkg:Place ) ] ;
+    rdfs:range xsd:string .
+
+clkg:hasVillage a owl:DatatypeProperty ;
+    rdfs:label "村"@zh ;
+    rdfs:domain clkg:Place ;
+    rdfs:range xsd:string .
+
+clkg:mentionsPlace a owl:DatatypeProperty ;
+    rdfs:label "地名"@zh ;
+    rdfs:domain clkg:Document ;
+    rdfs:range xsd:string .
