@@ -207,7 +207,92 @@ def build_dot() -> str:
     return "\n".join(L)
 
 
+# ── CIDOC-CRM 映射（curated 已知项；其余走模式规则，标 broad/none 供专家细化）──
+_CRM_CURATED = {
+    # 对象属性
+    "tookPlaceIn":        ("P7_took_place_at", "exact", ""),
+    "carriedOutBy":       ("P14_carried_out_by", "exact", ""),
+    "containsPlace":      ("P89_falls_within", "close", "空间包含"),
+    "locatedAt":          ("P168_place_is_defined_by", "close", "→ Geometry"),
+    "mentionsPlaceEntity": ("P67_refers_to", "broad", "诗→提及地"),
+    "mentionsGroup":      ("P67_refers_to", "broad", ""),
+    "hasSender":          ("—", "none", "信件寄件人；CRM 需经 E7+P14 间接表达"),
+    "hasRecipient":       ("—", "none", "收件人；同上"),
+    "hasOriginPlace":     ("P27_moved_from", "broad", "若建模为 E9 Move"),
+    "hasDestinationPlace": ("P26_moved_to", "broad", "若建模为 E9 Move"),
+    # 数据属性·常用
+    "hasName":   ("P1_is_identified_by", "close", "→ E41 Appellation"),
+    "hasTitle":  ("P102_has_title", "close", "→ E35 Title"),
+    "hasAuthor": ("P14_carried_out_by", "broad", "创建活动 E65"),
+}
+
+
+def _crm_for(pred: str) -> tuple[str, str, str]:
+    if pred in _CRM_CURATED:
+        return _CRM_CURATED[pred]
+    if any(k in pred for k in ("Date", "Time", "Era", "Span", "captured")):
+        return ("P4_has_time-span", "broad", "时间 → E52")
+    if any(k in pred for k in ("Type", "Layer", "Category", "EventType")):
+        return ("P2_has_type", "close", "→ E55 Type")
+    if any(k in pred for k in ("Code", "Number", "Reference", "Batch", "Identifier")):
+        return ("P1_is_identified_by", "close", "→ E42 Identifier")
+    if any(k in pred for k in ("Description", "Note", "FullText", "Abstract",
+                               "Record", "SurveyHistory", "CulturalValue", "Concept")):
+        return ("P3_has_note / P190", "close", "文本内容")
+    if any(k in pred for k in ("Address", "Prefecture", "County", "Town",
+                               "Village", "District", "Country")):
+        return ("P87_is_identified_by", "broad", "地名/地址 → E45/E48")
+    return ("—", "none", "项目扩展，无直接 CRM")
+
+
+def build_crm_table() -> tuple[str, str]:
+    """返回 (markdown, csv) 的 CRM 映射表。"""
+    inv = inventory()
+    zh = _zh_labels()
+    rows = []  # (clkg, kind, crm, level, note)
+    # 类
+    for t, (cn, czh, crm) in CLASSES.items():
+        rows.append((f"clkg:{cn}", "Class", f"crm:{crm}" if crm else "—",
+                     "close" if crm else "none", czh))
+    rows.append(("clkg:Evidence", "Class", "prov:Entity", "exact", "PROV-O，非 CRM"))
+    # 属性
+    edges = sorted(p for p, a in inv.items() if a["ref"] or a["geo"])
+    attrs = sorted(p for p, a in inv.items() if not a["ref"] and not a["geo"])
+    for p in edges:
+        crm, lvl, note = _crm_for(p)
+        rows.append((f"clkg:{p}", "ObjectProp", crm if crm == "—" else f"crm:{crm}", lvl,
+                     (zh.get(p, "") + " " + note).strip()))
+    for p in attrs:
+        crm, lvl, note = _crm_for(p)
+        rows.append((f"clkg:{p}", "DataProp", crm if crm == "—" else f"crm:{crm}", lvl,
+                     (zh.get(p, "") + " " + note).strip()))
+
+    LV = {"exact": "✅ exact", "close": "🟢 close", "broad": "🟡 broad", "none": "⚪ none"}
+    md = ["# CL-Onto ↔ CIDOC-CRM 映射表",
+          "",
+          "match: ✅exact 等价 · 🟢close 近义 · 🟡broad 上位/需建模 · ⚪none 项目扩展无直接对应",
+          "", "| CLKG 术语 | 种类 | CIDOC-CRM | match | 说明 |",
+          "|---|---|---|---|---|"]
+    cnt = {"exact": 0, "close": 0, "broad": 0, "none": 0}
+    for clkg, kind, crm, lvl, note in rows:
+        cnt[lvl] += 1
+        md.append(f"| `{clkg}` | {kind} | {crm} | {LV[lvl]} | {note} |")
+    md.insert(3, f"覆盖：✅{cnt['exact']} 🟢{cnt['close']} 🟡{cnt['broad']} ⚪{cnt['none']}（共 {len(rows)} 项）\n")
+    csv = ["clkg,kind,cidoc_crm,match,note"]
+    for clkg, kind, crm, lvl, note in rows:
+        csv.append(f'"{clkg}",{kind},"{crm}",{lvl},"{note}"')
+    return "\n".join(md), "\n".join(csv)
+
+
 def main(argv: list[str]) -> int:
+    if "--crm" in argv:
+        md, csv = build_crm_table()
+        d = Path(__file__).resolve().parent.parent / "03_docs" / "ontology"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "crm-mapping.md").write_text(md, encoding="utf-8")
+        (d / "crm-mapping.csv").write_text(csv, encoding="utf-8")
+        print(f"✅ {d}/crm-mapping.md / .csv")
+        return 0
     if "--dot" in argv:
         import subprocess
         dot = build_dot()
