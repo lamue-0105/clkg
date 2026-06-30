@@ -317,10 +317,10 @@ def build_vowl_dot(top_k: int = 3) -> str:
          '  layout=neato; overlap=false; splines=true; bgcolor="white"; sep="+8";',
          '  node[fontname="PingFang SC",fontsize=11,penwidth=0.8];',
          '  edge[color="#555555",arrowsize=0.7];']
-    # 类（蓝圆）
+    # 类（蓝圆，全英文）
     for t, (cn, czh, _) in CLASSES.items():
-        L.append(f'  {cn}[shape=circle,style=filled,fillcolor="#AFCBEC",width=1.15,'
-                 f'fixedsize=true,label="{czh}\\n{cn}"];')
+        L.append(f'  {cn}[shape=circle,style=filled,fillcolor="#AFCBEC",width=1.25,'
+                 f'fixedsize=true,fontsize=10,label="{cn}"];')
     for extra in ("Geometry", "Evidence"):
         L.append(f'  {extra}[shape=circle,style=filled,fillcolor="#AFCBEC",width=1.0,'
                  f'fixedsize=true,label="{extra}"];')
@@ -347,6 +347,12 @@ def build_vowl_dot(top_k: int = 3) -> str:
                              f'label="locatedAt",fontsize=9,height=0.22];')
                     L.append(f'  {CLASSES[t][0]} -> {op}[arrowhead=none]; {op} -> Geometry;')
             break
+    # 每类 → Evidence（hasEvidence，溯源边）
+    for t, (cn, _czh, _) in CLASSES.items():
+        op = f"op{i}"; i += 1
+        L.append(f'  {op}[shape=box,style=filled,fillcolor="#A9C7F0",'
+                 f'label="hasEvidence",fontsize=9,height=0.22];')
+        L.append(f'  {cn} -> {op}[arrowhead=none]; {op} -> Evidence;')
     # 数据属性（每类 top_k，绿标签→黄类型框）
     attrs = _class_attr_counts()
     j = 0
@@ -357,7 +363,7 @@ def build_vowl_dot(top_k: int = 3) -> str:
             dp, yb = f"dp{j}", f"yb{j}"; j += 1
             rng = "decimal" if pred in NUMERIC else "string"
             L.append(f'  {dp}[shape=box,style=filled,fillcolor="#9BCB6A",'
-                     f'label="{_esc(zh.get(pred, pred))}",fontsize=9,height=0.22];')
+                     f'label="{_esc(pred)}",fontsize=9,height=0.22];')
             L.append(f'  {yb}[shape=box,style=filled,fillcolor="#FFCC33",'
                      f'label="{rng}",fontsize=9,height=0.22,width=0.5];')
             L.append(f'  {CLASSES[t][0]} -> {dp}[arrowhead=none]; {dp} -> {yb};')
