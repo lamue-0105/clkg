@@ -1,0 +1,21 @@
+digraph CLOnto {
+  rankdir=LR; bgcolor="white"; graph[fontname="PingFang SC",fontsize=11];
+  node[shape=box,style="rounded,filled",fontname="PingFang SC",fontcolor=white,fontsize=12,margin="0.22,0.13"];
+  edge[fontname="PingFang SC",fontsize=9,color="#9aa4b2",fontcolor="#374151"];
+  Place[fillcolor="#2E75B6",label="Place\n地点 (pl)\n30 属性"];
+  CulturalLandscapeUnit[fillcolor="#17a2b8",label="CulturalLandscapeUnit\n文化景观单元 (clu)\n10 属性"];
+  Actor[fillcolor="#7030A0",label="Actor\n行动者 (ac)\n1 属性"];
+  Document[fillcolor="#C55A11",label="Document\n文档 (doc)\n20 属性"];
+  Event[fillcolor="#c0392b",label="Event\n事件 (ev)\n27 属性"];
+  DigitalImage[fillcolor="#6c757d",label="DigitalImage\n图像 (img)\n5 属性"];
+  Geometry[shape=ellipse,fillcolor="#374151",fontcolor=white,label="Geometry\nWGS84"];
+  CulturalLandscapeUnit -> Place [label="containsPlace"];
+  Document -> Place [label="hasDestinationPlace\nhasOriginPlace\nmentionsPlaceEntity"];
+  Document -> Actor [label="hasRecipient\nhasSender"];
+  Event -> Actor [label="carriedOutBy\nmentionsGroup"];
+  Event -> Place [label="tookPlaceIn"];
+  CulturalLandscapeUnit -> Geometry [label="locatedAt",style=dashed,color="#3a8a55"];
+  Document -> Geometry [label="locatedAt",style=dashed,color="#3a8a55"];
+  DigitalImage -> Geometry [label="locatedAt",style=dashed,color="#3a8a55"];
+  Place -> Geometry [label="locatedAt",style=dashed,color="#3a8a55"];
+}

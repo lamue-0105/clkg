@@ -167,7 +167,61 @@ def build_turtle(version: str = "0.1") -> str:
     return "\n".join(out)
 
 
+CLASS_COLOR = {"pl": "#2E75B6", "clu": "#17a2b8", "ac": "#7030A0",
+               "doc": "#C55A11", "ev": "#c0392b", "img": "#6c757d"}
+
+
+def build_dot() -> str:
+    """类级本体结构图（Methods F4）的 Graphviz DOT。"""
+    inv = inventory()
+    attr_count = {t: 0 for t in CLASSES}
+    for p, a in inv.items():
+        if not a["ref"] and not a["geo"]:
+            for t in a["subj"]:
+                if t in attr_count:
+                    attr_count[t] += 1
+    L = ['digraph CLOnto {',
+         '  rankdir=LR; bgcolor="white"; graph[fontname="PingFang SC",fontsize=11];',
+         '  node[shape=box,style="rounded,filled",fontname="PingFang SC",fontcolor=white,fontsize=12,margin="0.22,0.13"];',
+         '  edge[fontname="PingFang SC",fontsize=9,color="#9aa4b2",fontcolor="#374151"];']
+    for t, (cn, czh, _) in CLASSES.items():
+        L.append(f'  {cn}[fillcolor="{CLASS_COLOR[t]}",label="{cn}\\n{czh} ({t})\\n{attr_count[t]} 属性"];')
+    L.append('  Geometry[shape=ellipse,fillcolor="#374151",fontcolor=white,label="Geometry\\nWGS84"];')
+    pairs: dict[tuple[str, str], list[str]] = {}
+    for p, a in inv.items():
+        if a["ref"]:
+            for st in a["subj"]:
+                for ot in a["objt"]:
+                    if st in CLASSES and ot in CLASSES:
+                        pairs.setdefault((st, ot), []).append(p)
+    for (st, ot), preds in pairs.items():
+        lbl = "\\n".join(sorted(set(preds)))
+        L.append(f'  {CLASSES[st][0]} -> {CLASSES[ot][0]} [label="{lbl}"];')
+    geo_src = set()
+    for p, a in inv.items():
+        if a["geo"]:
+            geo_src |= {t for t in a["subj"] if t in CLASSES}
+    for t in sorted(geo_src):
+        L.append(f'  {CLASSES[t][0]} -> Geometry [label="locatedAt",style=dashed,color="#3a8a55"];')
+    L.append("}")
+    return "\n".join(L)
+
+
 def main(argv: list[str]) -> int:
+    if "--dot" in argv:
+        import subprocess
+        dot = build_dot()
+        d = Path(__file__).resolve().parent.parent / "03_docs" / "ontology"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "clkg-schema.dot").write_text(dot, encoding="utf-8")
+        for fmt in ("svg", "png"):
+            try:
+                subprocess.run(["dot", f"-T{fmt}", str(d / "clkg-schema.dot"),
+                                "-o", str(d / f"clkg-schema.{fmt}")], check=True)
+            except Exception as e:
+                print(f"渲染 {fmt} 失败: {e}")
+        print(f"✅ {d}/clkg-schema.dot / .svg / .png")
+        return 0
     ttl = build_turtle()
     if "--print" in argv:
         print(ttl)
