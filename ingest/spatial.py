@@ -62,7 +62,11 @@ SELECT clu.pid, 'containsPlace', NULL, pl.pid, NULL,
        NULL, NULL, %(evidence_id)s, 1.0
 FROM   clu, pl
 WHERE  ST_Contains(clu.geom, pl.geom)
-ON CONFLICT ON CONSTRAINT unique_stmt_check DO NOTHING;
+ON CONFLICT (subject_id, predicate,
+             COALESCE(md5(object_value), ''),
+             COALESCE(object_entity_id, ''),
+             COALESCE(valid_time_start, ''),
+             evidence_id) DO NOTHING;
 """
 
 

@@ -42,10 +42,13 @@
 --   {"wkt":"POINT(...)", "srid":32645}     → object_geometry
 --   anything else                          → object_value (full JSON dumped)
 --
--- LIMITATION (v1): no statement-level dedup on retry. Re-running a batch will
--- duplicate entity_statement rows. conceptual_entity and evidence are
--- deduplicated via PID and source_name respectively. To re-run cleanly,
--- DELETE FROM entity_statement WHERE evidence_id IN (...) first.
+-- Statement-level dedup on retry works as of 2026-07-20; re-running a batch is
+-- now genuinely idempotent. It previously was not: the ON CONFLICT clause in
+-- step 4 named the columns of unique_stmt_check, but that index left NULLs
+-- distinct, so it never fired for literal-valued statements (~99% of rows) and
+-- re-runs silently duplicated them. Both the index and the clause now COALESCE
+-- the nullable columns. conceptual_entity and evidence continue to be
+-- deduplicated via PID and source_name respectively.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION ingest_batch(p_batch_id UUID)
@@ -222,7 +225,15 @@ BEGIN
   WHERE s.batch_id = p_batch_id
   -- Idempotent re-run: skip rows that already exist (matches the schema's
   -- unique_stmt_check on subject+predicate+value+ref+vts+evidence).
-  ON CONFLICT (subject_id, predicate, md5(object_value), object_entity_id, valid_time_start, evidence_id) DO NOTHING;
+  -- The COALESCE wrappers must be repeated verbatim from the index definition
+  -- in 00_create_schema.sql — ON CONFLICT resolves an expression index by
+  -- matching its expressions exactly, and a mismatch is a hard error, not a
+  -- silent fallback.
+  ON CONFLICT (subject_id, predicate,
+               COALESCE(md5(object_value), ''),
+               COALESCE(object_entity_id, ''),
+               COALESCE(valid_time_start, ''),
+               evidence_id) DO NOTHING;
 
   GET DIAGNOSTICS v_rows_ok = ROW_COUNT;
 

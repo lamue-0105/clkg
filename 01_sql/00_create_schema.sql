@@ -61,11 +61,24 @@ ALTER TABLE entity_statement ADD CONSTRAINT entity_statement_object_entity_id_fk
 ALTER TABLE entity_statement ADD CONSTRAINT entity_statement_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES conceptual_entity(pid) ON DELETE CASCADE;
 -- Idempotency key for re-insert. object_value is hashed (md5) so long literals
 -- (full poem / document text > 2704 bytes) don't exceed the btree index-row
--- size limit. md5(NULL)=NULL preserves the original NULLS-DISTINCT semantics,
--- so this is equivalent to the old UNIQUE constraint on existing data.
--- Implemented as a UNIQUE INDEX because constraints can't span expressions.
-CREATE UNIQUE INDEX unique_stmt_check ON entity_statement
-  (subject_id, predicate, md5(object_value), object_entity_id, valid_time_start, evidence_id);
+-- size limit. Implemented as a UNIQUE INDEX because constraints can't span
+-- expressions.
+--
+-- Every nullable key column is wrapped in COALESCE. Without it PostgreSQL
+-- treats NULLs as DISTINCT, and since object_entity_id is NULL on every
+-- literal-valued statement and valid_time_start is NULL on most rows, the
+-- constraint silently failed to fire for ~99% of statements — re-running an
+-- ingest duplicated rows instead of colliding. Measured before the fix:
+-- mustang was 48.45% redundant rows. See 01_sql/05_fix_unique_stmt_check.sql
+-- for the migration that repaired the existing regions.
+CREATE UNIQUE INDEX unique_stmt_check ON entity_statement (
+  subject_id,
+  predicate,
+  COALESCE(md5(object_value), ''),
+  COALESCE(object_entity_id, ''),
+  COALESCE(valid_time_start, ''),
+  evidence_id
+);
 
 CREATE INDEX IF NOT EXISTS idx_statement_predicate ON public.entity_statement USING btree (predicate);
 CREATE INDEX IF NOT EXISTS idx_statement_subject ON public.entity_statement USING btree (subject_id);
