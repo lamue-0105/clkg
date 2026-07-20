@@ -1,0 +1,55 @@
+{
+  "_about": "Gold standard for L2 extraction. Source passage: the settlement-case section of the Harrison 2019 reading notes (~/clkg-research/reading-notes/), covering book pp.64-101. Curated by hand 2026-07-20 against the notes text, which was itself produced by a full visual read of the scan.",
+  "_scope": "Only facts the passage states explicitly. Anything requiring the wider book, or the reader's background knowledge, is deliberately excluded — the extractor is graded on faithfulness to the given text, not on knowing Mustang.",
+  "_matching": "A prediction counts as a hit when subject and predicate match and the object contains (or is contained by) the gold object after normalisation. Loose on purpose: the object is free text and phrasing varies.",
+  "doc_key": "doc:harrison2019-mustang-building",
+  "locator": "p.64-69",
+
+  "_source_file": "~/clkg-research/reading-notes/Harrison2019_Mustang_Building_通读笔记.md",
+  "_source_start": "**Te**——密度极值",
+  "_source_length": 1400,
+
+  "facts": [
+    {"subject": "Te",          "subject_type": "clu", "predicate": "hasSubUnitCount",      "object": "5"},
+    {"subject": "Te",          "subject_type": "clu", "predicate": "hasSettlementForm",    "object": "密集"},
+    {"subject": "Thangka",     "subject_type": "clu", "predicate": "hasName",              "object": "Khyungdzong Karpo"},
+    {"subject": "Thangka",     "subject_type": "clu", "predicate": "partOfUnit",           "object": "Te"},
+    {"subject": "Yul",         "subject_type": "clu", "predicate": "partOfUnit",           "object": "Te"},
+    {"subject": "Yul",         "subject_type": "clu", "predicate": "hasSubUnitCount",      "object": "4"},
+
+    {"subject": "Tshug",       "subject_type": "clu", "predicate": "hasSubUnitCount",      "object": "3"},
+    {"subject": "Cikyab",      "subject_type": "clu", "predicate": "partOfUnit",           "object": "Tshug"},
+
+    {"subject": "Kag",         "subject_type": "clu", "predicate": "hasName",              "object": "Kagbeni"},
+    {"subject": "Kag 城堡",     "subject_type": "pl",  "predicate": "hasConstructionDate",  "object": "1570",
+     "date_basis": "dendrochronology",
+     "_note": "1570 dates the castle. Attributing it to the settlement Kag is the v1 failure mode this case exists to catch."},
+    {"subject": "Kag 城堡",     "subject_type": "pl",  "predicate": "hasFoundedBy",         "object": "Lo"},
+
+    {"subject": "Garab Dzong", "subject_type": "clu", "predicate": "hasSettlementForm",    "object": "山顶堡垒"},
+    {"subject": "Garab Dzong", "subject_type": "clu", "predicate": "hasConstructionDate",  "object": "16 世纪上半叶",
+     "date_basis": "dendrochronology"},
+
+    {"subject": "Marpha",      "subject_type": "clu", "predicate": "hasSettlementForm",    "object": "线型"},
+    {"subject": "Dzongkho",    "subject_type": "clu", "predicate": "hasPreservationState", "object": "废弃"},
+
+    {"subject": "Cimang",      "subject_type": "clu", "predicate": "hasSurveyYear",        "object": "2016"},
+    {"subject": "Cimang",      "subject_type": "clu", "predicate": "surveyedBy",           "object": "Harrison"},
+
+    {"subject": "Tukche",      "subject_type": "clu", "predicate": "hasEra",               "object": "19 世纪"},
+
+    {"subject": "Gemi 寺院",    "subject_type": "pl",  "predicate": "hasConstructionDate",  "object": "1512"},
+    {"subject": "Gemi 寺院",    "subject_type": "pl",  "predicate": "hasFoundedBy",         "object": "Tashigön"},
+    {"subject": "Gemi 王宫",    "subject_type": "pl",  "predicate": "hasConstructionDate",  "object": "1735"},
+    {"subject": "Gemi 王宫",    "subject_type": "pl",  "predicate": "hasFoundedBy",         "object": "Tendzin Wangyel"}
+  ],
+
+  "assertion_cases": [
+    {"subject": "Garab Dzong", "contains": "Sum", "expected": "reported",
+     "_why": "「Thini 人称其曾是…」— attributed to local claim, not asserted by the author"},
+    {"subject": "Cimang", "contains": "Thini", "expected": "reported",
+     "_why": "「据说由 Thini 建立」"},
+    {"subject": "Tshug", "contains": "防御", "expected": "hypothesised",
+     "_why": "the author is arguing *against* the defensive explanation and ends on an open question"}
+  ]
+}
