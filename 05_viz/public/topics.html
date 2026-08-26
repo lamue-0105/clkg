@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>CLKG 专题与应用</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #E4E5DC; --bg-raised: #EEEFE6; --bg-card: #F3F3EB;
+    --fg: #212822; --fg-muted: #5B6259; --rule: #C7C9BC;
+    --brass: #A5662C; --teal: #3C6B60; --brick: #8C4A3B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, "PingFang SC", sans-serif; font-size: 14px; }
+  header { background: var(--bg-raised); border-bottom: 1px solid var(--rule); padding: 10px 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  nav.top-nav { display: flex; gap: 4px; margin-left: 8px; }
+  nav.top-nav a { font-size: 12.5px; color: var(--fg-muted); text-decoration: none; padding: 4px 10px; border-radius: 4px; }
+  nav.top-nav a.current { color: var(--brass); background: var(--bg-card); font-weight: 600; }
+  nav.top-nav a:hover { color: var(--brass); }
+  .version-bar { background: var(--bg-card); border-bottom: 1px solid var(--rule); padding: 5px 20px; display: flex; gap: 14px; align-items: center; font-family: monospace; font-size: 10.5px; color: var(--fg-muted); flex-wrap: wrap; }
+  .version-bar .vtag { background: var(--bg); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 7px; }
+  .version-bar .vtag b { color: var(--teal); }
+  .version-bar .vstatus { color: var(--brick); font-weight: 600; }
+
+  .tabs { display: flex; gap: 6px; padding: 14px 24px 0; border-bottom: 1px solid var(--rule); background: var(--bg-raised); }
+  .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--fg-muted); border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--brass); border-bottom-color: var(--brass); font-weight: 600; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+  .topic { display: none; }
+  .topic.active { display: block; }
+  .topic h2 { font-size: 20px; margin: 0 0 4px; }
+  .topic .region-link { font-size: 12px; color: var(--teal); text-decoration: none; }
+
+  .stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 20px; }
+  .stat-chip { background: var(--bg-card); border: 1px solid var(--rule); border-radius: 20px; padding: 4px 14px; font-size: 12.5px; font-family: monospace; }
+  .stat-chip b { color: var(--brass); }
+  .stat-chip.warn b { color: var(--brick); }
+
+  .frame { border: 1px solid var(--rule); border-radius: 6px; margin-bottom: 14px; overflow: hidden; }
+  .frame .hd { background: var(--bg-card); padding: 8px 14px; font-size: 12px; font-weight: 600; color: var(--teal); text-transform: uppercase; letter-spacing: 0.04em; }
+  .frame .bd { padding: 12px 14px; font-size: 13px; line-height: 1.8; }
+  .frame.limitation .hd { color: var(--brick); }
+
+  .by-type { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .by-type span { font-family: monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--rule); border-radius: 3px; padding: 2px 7px; }
+
+  .empty-hint { color: var(--fg-muted); font-size: 12px; padding: 14px 0; }
+</style>
+<link rel="stylesheet" href="clkg-theme.css">
+</head>
+<body>
+
+<header>
+  <h1>CLKG 专题与应用</h1>
+  <nav class="top-nav">
+    <a href="explorer.html">探索工作台</a>
+    <a href="workbench.html">研究总览</a>
+    <a href="topics.html" class="current">专题与应用</a>
+    <a href="upload.html">数据上传</a>
+  </nav>
+</header>
+<div class="version-bar" id="versionBar">版本信息加载中…</div>
+
+<div class="tabs" id="tabBar">
+  <div class="tab active" data-topic="mustang">木斯塘</div>
+  <div class="tab" data-topic="qiaopi">侨批</div>
+  <div class="tab" data-topic="xinjiang">新疆</div>
+</div>
+
+<div class="wrap" id="topicWrap">
+  <div class="empty-hint">加载中…</div>
+</div>
+
+<script>
+const API = location.origin;
+const TOPICS = ["mustang", "qiaopi", "xinjiang"];
+let currentTopic = "mustang";
+
+async function loadVersionBar() {
+  const bar = document.getElementById("versionBar");
+  try {
+    const res = await fetch(API + "/api/versions");
+    const v = await res.json();
+    bar.innerHTML = `
+      <span class="vtag">数据 <b>${v.data_version}</b></span>
+      <span class="vtag">本体 <b>${v.ontology_version}</b></span>
+      <span class="vtag">规则集 <b>${v.rule_set_version}</b></span>
+      <span class="vtag">权威资源 <b>${v.authority_version}</b></span>
+      <span class="vstatus">${v.status}</span>`;
+  } catch (e) {
+    bar.innerHTML = '<span class="vstatus">版本信息加载失败</span>';
+  }
+}
+
+function renderTopic(key, t) {
+  const wrap = document.getElementById("topicWrap");
+  const stats = t.live_stats || {};
+  const val = t.validation_summary || {};
+  const errN = val.error || 0, warnN = val.warning || 0;
+  wrap.innerHTML = `
+    <div class="topic active">
+      <h2>${t.label}</h2>
+      <a class="region-link" href="explorer.html?region=${encodeURIComponent(key)}">→ 在探索工作台中检索该区域的实体（保留区域条件）</a>
+
+      <div class="stats-row">
+        <span class="stat-chip">实体 <b>${(stats.entities ?? "—").toLocaleString?.() ?? stats.entities}</b></span>
+        <span class="stat-chip">陈述 <b>${(stats.statements ?? "—").toLocaleString?.() ?? stats.statements}</b></span>
+        <span class="stat-chip">containsPlace <b>${stats.contains_place ?? "—"}</b></span>
+        <span class="stat-chip ${errN ? 'warn' : ''}">校验错误 <b>${errN}</b></span>
+        <span class="stat-chip ${warnN ? 'warn' : ''}">校验警告 <b>${warnN}</b></span>
+      </div>
+      ${stats.by_type ? `<div class="by-type">${stats.by_type.map(x => `<span>${x.entity_type}: ${x.count.toLocaleString()}</span>`).join("")}</div>` : ""}
+
+      <div class="frame">
+        <div class="hd">问题</div>
+        <div class="bd">${t.problem}</div>
+      </div>
+      <div class="frame">
+        <div class="hd">数据与标准</div>
+        <div class="bd">${t.data_standard}</div>
+      </div>
+      <div class="frame">
+        <div class="hd">建模与规则</div>
+        <div class="bd">${t.modeling_rule}</div>
+      </div>
+      <div class="frame">
+        <div class="hd">发现</div>
+        <div class="bd">当前活库实时统计：实体 ${stats.entities?.toLocaleString?.() ?? stats.entities} 条，陈述 ${stats.statements?.toLocaleString?.() ?? stats.statements} 条${stats.contains_place ? `，其中已推理出 containsPlace 空间包含关系 ${stats.contains_place} 条` : "，尚未产出 containsPlace 推理结果"}。规则库校验：${errN} 条错误级、${warnN} 条警告级发现（详见"研究总览 → 在线校验"）。</div>
+      </div>
+      <div class="frame limitation">
+        <div class="hd">限制</div>
+        <div class="bd">${t.limitations}</div>
+      </div>
+    </div>`;
+}
+
+async function selectTopic(key) {
+  currentTopic = key;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.topic === key));
+  const wrap = document.getElementById("topicWrap");
+  wrap.innerHTML = '<div class="empty-hint">加载中…</div>';
+  try {
+    const res = await fetch(`${API}/api/topics/${key}`);
+    const data = await res.json();
+    renderTopic(key, data);
+  } catch (e) {
+    wrap.innerHTML = '<div class="empty-hint">加载失败，检查API是否在跑</div>';
+  }
+}
+
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => selectTopic(t.dataset.topic)));
+
+(async function init() {
+  loadVersionBar();
+  selectTopic("mustang");
+})();
+</script>
+</body>
+</html>

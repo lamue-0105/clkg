@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLKG · 数据上传</title>
+<link rel="stylesheet" href="clkg-theme.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="mark">CK</div><div class="brand"><b>CLKG</b><small>CULTURAL LANDSCAPE KNOWLEDGE GRAPH</small></div>
+  <nav class="topnav" aria-label="主导航"><a href="explorer.html">探索工作台</a><a href="workbench.html">研究总览</a><a href="topics.html">专题与应用</a><a href="upload.html" class="current">数据上传</a></nav>
+  <div class="spacer"></div><div id="versionBar" class="version-group" aria-label="当前研究版本"><span class="version">加载版本…</span></div><span id="apiStatus" class="api">连接中…</span>
+</header>
+
+<div class="upload-shell">
+  <div class="eyebrow">Data submission</div>
+  <h1 class="panel-title">提交采集批次</h1>
+  <p class="helper">
+    验证通过仅表示进入待审核队列，不代表已入库或已发布。
+    正式入库由负责人审核后人工执行。<br>
+    <a href="/api/upload/template" download>↓ 下载当前采集模板</a> ·
+    <a href="/02_data_collection/SOP_数据采集.md" target="_blank">查看采集 SOP →</a>
+  </p>
+
+  <!-- 上传表单 -->
+  <div class="upload-card">
+    <h2>上传采集工作簿</h2>
+    <p class="lede">选择目标区域，上传填好的 <code>CLKG_采集模板.xlsx</code>。系统将自动运行预采集验证。</p>
+
+    <form id="uploadForm">
+      <div class="field">
+        <label for="region">目标区域</label>
+        <select id="region" required>
+          <option value="">加载中…</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>采集工作簿 (.xlsx)</label>
+        <div class="file-drop" id="fileDrop">
+          <input type="file" id="fileInput" accept=".xlsx" required>
+          <div>点击选择文件，或拖拽到此处</div>
+          <div class="file-name" id="fileName"></div>
+        </div>
+      </div>
+
+      <div class="progress" id="progress">
+        <div class="spinner"></div>
+        <span id="progressText">上传中…</span>
+      </div>
+
+      <div class="action-row">
+        <button class="btn primary" type="submit" id="submitBtn">上传并验证</button>
+        <button class="btn" type="button" id="resetBtn">重置</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 验证结果 -->
+  <div class="result-panel" id="resultPanel">
+    <div class="upload-card">
+      <h2>验证结果</h2>
+      <div id="resultContent"></div>
+    </div>
+  </div>
+
+  <!-- 待审核列表（仅 reviewer 可见） -->
+  <div class="upload-card hidden" id="reviewerSection">
+    <h2>待审核批次 <span class="badge type" id="pendingCount">0</span></h2>
+    <p class="lede">以下批次已通过预采集验证，等待人工审核后入库。</p>
+    <div class="action-row" style="margin-bottom:12px">
+      <button class="btn" id="refreshPending">刷新列表</button>
+    </div>
+    <div class="batch-list" id="pendingList">
+      <div class="empty">暂无待审核批次</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+
+let selectedFile = null;
+let currentUserRole = null;
+
+// ───────────────────────────────────────────────────────────────────────────
+// init
+// ───────────────────────────────────────────────────────────────────────────
+
+async function init() {
+  try {
+    const v = await (await fetch(API + "/api/versions")).json();
+    $("#versionBar").innerHTML = `<span class="version">数据 <b>${esc(v.data_version)}</b></span><span class="version">本体 <b>${esc(v.ontology_version)}</b></span><span class="version">规则 <b>${esc(v.rule_set_version)}</b></span><span class="version">权威 <b>${esc(v.authority_version)}</b></span><span class="version status">● ${esc(v.status || "PUBLISHED")}</span>`;
+  } catch(e) {
+    $("#versionBar").innerHTML = '<span class="version">版本信息不可用</span>';
+  }
+
+  try {
+    const regions = await (await fetch(API + "/api/regions")).json();
+    const sel = $("#region");
+    sel.innerHTML = regions.map(r => `<option value="${esc(r.region)}">${esc(r.label)}</option>`).join("");
+    $("#apiStatus").textContent = "● 数据服务已连接";
+    $("#apiStatus").className = "api ok";
+  } catch(e) {
+    $("#apiStatus").textContent = "○ 数据服务未连接";
+    $("#apiStatus").className = "api err";
+    $("#region").innerHTML = '<option value="">服务不可用</option>';
+  }
+
+  // 检测当前用户角色（通过尝试访问 reviewer 接口）
+  try {
+    const res = await fetch(API + "/api/upload/pending");
+    if (res.ok) {
+      currentUserRole = "reviewer";
+      $("#reviewerSection").classList.remove("hidden");
+      loadPendingList();
+    } else if (res.status === 403) {
+      currentUserRole = "collector";
+    }
+  } catch(e) {
+    // 网络错误或 401（未认证），保持 collector 默认
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// file drop
+// ───────────────────────────────────────────────────────────────────────────
+
+const fileDrop = $("#fileDrop");
+const fileInput = $("#fileInput");
+
+fileDrop.addEventListener("click", () => fileInput.click());
+fileDrop.addEventListener("dragover", e => { e.preventDefault(); fileDrop.classList.add("dragover"); });
+fileDrop.addEventListener("dragleave", () => fileDrop.classList.remove("dragover"));
+fileDrop.addEventListener("drop", e => {
+  e.preventDefault();
+  fileDrop.classList.remove("dragover");
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    onFileSelected();
+  }
+});
+fileInput.addEventListener("change", onFileSelected);
+
+function onFileSelected() {
+  const f = fileInput.files[0];
+  if (!f) return;
+  if (!f.name.toLowerCase().endsWith(".xlsx")) {
+    alert("仅支持 .xlsx 文件");
+    fileInput.value = "";
+    return;
+  }
+  selectedFile = f;
+  $("#fileName").textContent = `${esc(f.name)} (${(f.size / 1024 / 1024).toFixed(2)} MB)`;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// upload
+// ───────────────────────────────────────────────────────────────────────────
+
+$("#uploadForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const region = $("#region").value;
+  if (!region) { alert("请选择目标区域"); return; }
+  if (!selectedFile) { alert("请选择文件"); return; }
+
+  const formData = new FormData();
+  formData.append("file", selectedFile);
+  formData.append("region", region);
+
+  $("#progress").classList.add("active");
+  $("#progressText").textContent = "上传中…";
+  $("#submitBtn").disabled = true;
+  $("#resultPanel").classList.remove("active");
+
+  try {
+    $("#progressText").textContent = "验证中…";
+    const res = await fetch(`${API}/api/upload`, { method: "POST", body: formData });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || `HTTP ${res.status}`);
+    }
+
+    renderResult(data);
+    if (currentUserRole === "reviewer") {
+      loadPendingList();
+    }
+  } catch(ex) {
+    $("#resultPanel").classList.add("active");
+    $("#resultContent").innerHTML = `
+      <div class="result-banner fail">
+        <span class="icon">✗</span>
+        <div>
+          <b>上传失败</b><br>
+          <span style="font-size:12px">${esc(ex.message)}</span>
+        </div>
+      </div>`;
+  } finally {
+    $("#progress").classList.remove("active");
+    $("#submitBtn").disabled = false;
+  }
+});
+
+$("#resetBtn").addEventListener("click", () => {
+  fileInput.value = "";
+  selectedFile = null;
+  $("#fileName").textContent = "";
+  $("#resultPanel").classList.remove("active");
+  $("#uploadForm").reset();
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// result rendering
+// ───────────────────────────────────────────────────────────────────────────
+
+function renderResult(data) {
+  $("#resultPanel").classList.add("active");
+  const pass = data.pass;
+  const bannerClass = pass ? "pass" : "fail";
+  const icon = pass ? "✓" : "✗";
+  const title = pass ? "验证通过 · 进入待审核队列" : "验证未通过";
+  const statusText = pass ? "待审核" : "已拒绝";
+
+  let html = `
+    <div class="result-banner ${bannerClass}">
+      <span class="icon">${icon}</span>
+      <div>
+        <b>${title}</b><br>
+        <span style="font-size:12px">批次 ID: <code>${esc(data.batch_id)}</code> · 状态: ${statusText}</span>
+      </div>
+    </div>
+
+    <div class="h3-metrics">
+      <span class="h3-chip">错误 ${data.error_count}</span>
+      <span class="h3-chip">警告 ${data.warning_count}</span>
+    </div>
+
+    <details class="report-fold">
+      <summary>研究质量代理指标（H3）</summary>
+      <div class="fold-body">
+        <b>注意：</b>以下指标为预采集代理指标，用于研究质量评估，不代表最终入库数据质量。<br>
+        M1 受控谓词值域离散度: ${data.m1_vocab_distinct_total || 0}<br>
+        M2 事后归一化率: ${data.m2_rate_pct || 0}%<br>
+        M3 来源完整性缺失: ${data.m3_source_complete_bad || 0}<br>
+        M4 natural_key 冲突: ${data.m4_natural_key_conflicts || 0}（占位值，未最终确认）
+      </div>
+    </details>
+
+    <div style="margin-top:14px">
+      <a href="${API}${data.report_url}?format=md" target="_blank" class="btn" style="text-decoration:none;display:inline-block">查看完整 Markdown 报告 →</a>
+    </div>
+  `;
+
+  if (!pass && data.sheets) {
+    html += `<div class="section-label" style="margin-top:18px">问题明细（前 100 条）</div>`;
+    for (const sheet of data.sheets) {
+      if (!sheet.issues || !sheet.issues.length) continue;
+      html += `<div style="margin-top:12px"><b>${esc(sheet.sheet_name)}</b> · ${sheet.n_errors} 错误 / ${sheet.n_warnings} 警告</div>`;
+      html += `<table class="issue-table"><thead><tr><th>行</th><th>列</th><th>级别</th><th>规则</th><th>说明</th></tr></thead><tbody>`;
+      for (const iss of sheet.issues) {
+        const dotClass = iss.severity === "error" ? "error" : (iss.severity === "warning" ? "warning" : "info");
+        html += `<tr><td>${iss.row}</td><td>${esc(iss.column)}</td><td><span class="severity-dot ${dotClass}"></span>${esc(iss.severity)}</td><td><code>${esc(iss.code)}</code></td><td>${esc(iss.message)}</td></tr>`;
+      }
+      html += `</tbody></table>`;
+    }
+  }
+
+  $("#resultContent").innerHTML = html;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// pending list (reviewer only)
+// ───────────────────────────────────────────────────────────────────────────
+
+async function loadPendingList() {
+  try {
+    const rows = await (await fetch(`${API}/api/upload/pending`)).json();
+    $("#pendingCount").textContent = rows.length;
+    if (!rows.length) {
+      $("#pendingList").innerHTML = '<div class="empty">暂无待审核批次</div>';
+      return;
+    }
+    $("#pendingList").innerHTML = rows.map(r => `
+      <div class="batch-item">
+        <div>
+          <b>${esc(r.original_filename)}</b>
+          <div class="meta">
+            ${esc(r.region)} · ${esc(r.uploader)} · ${esc(r.created_at?.slice(0,19) || "")} ·
+            错误 ${r.error_count} / 警告 ${r.warning_count}
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn" href="${API}/api/upload/${esc(r.batch_id)}/file" download>下载</a>
+          <button class="btn primary" onclick="reviewBatch('${esc(r.batch_id)}', 'accept')">接受</button>
+          <button class="btn" onclick="reviewBatch('${esc(r.batch_id)}', 'reject')">拒绝</button>
+        </div>
+      </div>
+    `).join("");
+  } catch(e) {
+    $("#pendingList").innerHTML = '<div class="empty">加载失败</div>';
+  }
+}
+
+async function reviewBatch(batchId, action) {
+  const note = action === "reject" ? prompt("拒绝原因（可选）:") || "" : "";
+  const formData = new FormData();
+  formData.append("action", action);
+  formData.append("note", note);
+  try {
+    const res = await fetch(`${API}/api/upload/${batchId}/review`, { method: "POST", body: formData });
+    if (!res.ok) throw new Error(await res.text());
+    loadPendingList();
+  } catch(e) {
+    alert("操作失败: " + e.message);
+  }
+}
+
+$("#refreshPending").addEventListener("click", loadPendingList);
+
+// ───────────────────────────────────────────────────────────────────────────
+// start
+// ───────────────────────────────────────────────────────────────────────────
+
+init();
+</script>
+</body>
+</html>

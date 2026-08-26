@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>CLKG 研究总览</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #E4E5DC; --bg-raised: #EEEFE6; --bg-card: #F3F3EB;
+    --fg: #212822; --fg-muted: #5B6259; --rule: #C7C9BC;
+    --brass: #A5662C; --teal: #3C6B60; --brick: #8C4A3B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, "PingFang SC", sans-serif; font-size: 14px; }
+  header { background: var(--bg-raised); border-bottom: 1px solid var(--rule); padding: 10px 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  nav.top-nav { display: flex; gap: 4px; margin-left: 8px; }
+  nav.top-nav a { font-size: 12.5px; color: var(--fg-muted); text-decoration: none; padding: 4px 10px; border-radius: 4px; }
+  nav.top-nav a.current { color: var(--brass); background: var(--bg-card); font-weight: 600; }
+  nav.top-nav a:hover { color: var(--brass); }
+  .version-bar { background: var(--bg-card); border-bottom: 1px solid var(--rule); padding: 5px 20px; display: flex; gap: 14px; align-items: center; font-family: monospace; font-size: 10.5px; color: var(--fg-muted); flex-wrap: wrap; }
+  .version-bar .vtag { background: var(--bg); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 7px; }
+  .version-bar .vtag b { color: var(--teal); }
+  .version-bar .vstatus { color: var(--brick); font-weight: 600; }
+
+  .shell { display: grid; grid-template-columns: 200px 1fr; height: calc(100vh - 92px); }
+  .side-nav { background: var(--bg-raised); border-right: 1px solid var(--rule); padding: 14px 0; overflow-y: auto; }
+  .side-nav .grp { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); padding: 10px 16px 4px; }
+  .side-nav a { display: block; padding: 7px 16px; font-size: 13px; color: var(--fg); text-decoration: none; border-left: 3px solid transparent; }
+  .side-nav a:hover { background: var(--bg-card); }
+  .side-nav a.active { border-left-color: var(--brass); color: var(--brass); background: var(--bg-card); font-weight: 600; }
+
+  .content { overflow-y: auto; padding: 22px 28px; }
+  .content h2 { font-size: 17px; margin: 0 0 4px; }
+  .content .lede { color: var(--fg-muted); font-size: 12.5px; margin: 0 0 16px; max-width: 720px; line-height: 1.6; }
+  .content section { display: none; }
+  .content section.active { display: block; }
+
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 18px; }
+  table.data-table th { text-align: left; color: var(--fg-muted); font-weight: 500; padding: 6px 10px; border-bottom: 1px solid var(--rule); background: var(--bg-raised); }
+  table.data-table td { padding: 6px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  table.data-table tr:hover td { background: var(--bg-card); }
+  .mono { font-family: monospace; font-size: 11.5px; }
+  .tag { display: inline-block; font-size: 10.5px; font-family: monospace; border-radius: 3px; padding: 1px 6px; background: var(--bg-card); border: 1px solid var(--rule); margin: 1px 2px 1px 0; }
+  .sev-badge { font-size: 10px; font-family: monospace; border-radius: 3px; padding: 1px 6px; text-transform: uppercase; }
+  .sev-badge.error { background: #f5d9d3; color: var(--brick); }
+  .sev-badge.warning { background: #f2e6c8; color: #8a6d1a; }
+  .sev-badge.info { background: #d9e2f0; color: #2e5c8a; }
+  .match-exact, .match-close { color: var(--teal); }
+  .match-broad { color: #8a6d1a; }
+  .match-none { color: var(--fg-muted); }
+
+  .card { background: var(--bg-card); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; max-width: 720px; }
+  .card h3 { font-size: 13px; margin: 0 0 8px; color: var(--teal); }
+  .card p { margin: 4px 0; font-size: 12.5px; line-height: 1.7; }
+  .card .k { color: var(--fg-muted); }
+
+  .field-row { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  select { padding: 5px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--bg-card); font-size: 13px; }
+  button { background: var(--brass); color: #fff; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12.5px; cursor: pointer; }
+  button:hover { opacity: 0.9; }
+  a.dl-link { color: var(--teal); font-size: 12.5px; }
+
+  .empty-hint { color: var(--fg-muted); font-size: 12px; padding: 14px 0; }
+  .honest-note { border-left: 3px solid var(--brick); background: var(--bg-card); padding: 8px 12px; font-size: 12px; color: var(--fg-muted); max-width: 720px; margin-bottom: 14px; line-height: 1.7; }
+</style>
+<link rel="stylesheet" href="clkg-theme.css">
+</head>
+<body>
+
+<header>
+  <h1>CLKG 研究总览</h1>
+  <nav class="top-nav">
+    <a href="explorer.html">探索工作台</a>
+    <a href="workbench.html" class="current">研究总览</a>
+    <a href="topics.html">专题与应用</a>
+    <a href="upload.html">数据上传</a>
+  </nav>
+</header>
+<div class="version-bar" id="versionBar">版本信息加载中…</div>
+
+<div class="shell">
+  <div class="side-nav" id="sideNav">
+    <div class="grp">CL-Onto 建模</div>
+    <a data-sec="concepts" class="active">① 概念范围</a>
+    <a data-sec="predicates">② 语义结构</a>
+    <a data-sec="rules">③ 约束规则</a>
+    <a data-sec="formalize">④ 本体形式化</a>
+    <div class="grp">规则与校验</div>
+    <a data-sec="validation">在线校验</a>
+    <a data-sec="inference">推理与评估</a>
+    <div class="grp">数据与权威资源</div>
+    <a data-sec="sources">数据源目录</a>
+    <a data-sec="authorities">权威资源</a>
+    <div class="grp">版本与方法</div>
+    <a data-sec="versions">版本组合</a>
+  </div>
+
+  <div class="content">
+    <section id="sec-concepts" class="active">
+      <h2>① 概念范围</h2>
+      <p class="lede">CL-Onto 的 6 个核心类，及其与 CIDOC-CRM 的对齐关系（closeMatch）。实体数与谓词数按活库当前状态实时统计，覆盖 mustang/qiaopi/xinjiang/kashgar/liangzhu 全部区域库。</p>
+      <div id="conceptsTable"><div class="empty-hint">加载中…</div></div>
+    </section>
+
+    <section id="sec-predicates">
+      <h2>② 语义结构</h2>
+      <p class="lede">全部谓词（关系边/空间属性/数据属性）及其定义域(domain)、值域(range)，和 CIDOC-CRM 映射等级。数据来自 ingest/ontology.py 对活库的谓词清单自动生成，非手工维护，随数据增长自动刷新。</p>
+      <div id="predicatesTable"><div class="empty-hint">加载中…</div></div>
+    </section>
+
+    <section id="sec-rules">
+      <h2>③ 约束规则</h2>
+      <p class="lede">规则库当前已形式化为可执行 SQL 的规则，覆盖标识符/完整性/空间/证据关联/值域/数值六类约束。</p>
+      <div id="rulesTable"><div class="empty-hint">加载中…</div></div>
+      <div class="honest-note" id="plannedRules"></div>
+    </section>
+
+    <section id="sec-formalize">
+      <h2>④ 本体形式化</h2>
+      <p class="lede">本体以 OWL/RDFS（Turtle）形式发布，随活库数据自动重新生成——不是人工手写维护的静态文档。</p>
+      <div class="card">
+        <h3>Turtle 序列化</h3>
+        <p><a class="dl-link" href="/api/ontology/ttl" target="_blank">在新标签页查看 / 下载 clkg.ttl →</a></p>
+      </div>
+      <div class="card" style="max-width:100%">
+        <h3>CL-Onto ↔ CIDOC-CRM 映射表</h3>
+        <div id="crmTable"><div class="empty-hint">加载中…</div></div>
+      </div>
+    </section>
+
+    <section id="sec-validation">
+      <h2>在线校验</h2>
+      <p class="lede">针对已入库数据实时跑规则库全部规则，不落库、不做批次调度——这是"在线校验"的最小可行版本：随查随算。</p>
+      <div class="field-row">
+        <label>区域</label>
+        <select id="valRegion"></select>
+        <button onclick="runValidation()">运行校验</button>
+      </div>
+      <div id="valSummary"></div>
+      <div id="valFindings"><div class="empty-hint">选择区域后点击"运行校验"</div></div>
+    </section>
+
+    <section id="sec-inference">
+      <h2>推理与评估</h2>
+      <p class="lede">当前已实现的推理产物：clu×pl 的 ST_Contains 空间包含推理（containsPlace）。每条推理记录都关联一个合成 evidence 行，保持溯源诚实——推理不是凭空产生的陈述。</p>
+      <div id="inferenceTable"><div class="empty-hint">加载中…</div></div>
+    </section>
+
+    <section id="sec-sources">
+      <h2>数据源目录</h2>
+      <p class="lede">已识别的数据源及其接入状态。状态字段如实标注"已接入/试点/待接入"，不把规划中的数据源展示为已完成。</p>
+      <div id="sourcesTable"><div class="empty-hint">加载中…</div></div>
+    </section>
+
+    <section id="sec-authorities">
+      <h2>权威资源</h2>
+      <p class="lede">CL-Onto 对齐的外部标准/参考本体。</p>
+      <div id="authoritiesTable"><div class="empty-hint">加载中…</div></div>
+    </section>
+
+    <section id="sec-versions">
+      <h2>版本组合</h2>
+      <div id="versionCard"><div class="empty-hint">加载中…</div></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+const REGION_LABELS = { mustang: "木斯塘", qiaopi: "侨批", xinjiang: "新疆", kashgar: "喀什", liangzhu: "良渚" };
+
+document.querySelectorAll(".side-nav a").forEach(a => {
+  a.addEventListener("click", () => {
+    document.querySelectorAll(".side-nav a").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".content section").forEach(x => x.classList.remove("active"));
+    a.classList.add("active");
+    document.getElementById("sec-" + a.dataset.sec).classList.add("active");
+  });
+});
+if (location.hash === "#rules") {
+  document.querySelector('[data-sec="rules"]').click();
+}
+
+async function loadVersionBar() {
+  const bar = document.getElementById("versionBar");
+  const card = document.getElementById("versionCard");
+  try {
+    const res = await fetch(API + "/api/versions");
+    const v = await res.json();
+    bar.innerHTML = `
+      <span class="vtag">数据 <b>${v.data_version}</b></span>
+      <span class="vtag">本体 <b>${v.ontology_version}</b></span>
+      <span class="vtag">规则集 <b>${v.rule_set_version}</b></span>
+      <span class="vtag">权威资源 <b>${v.authority_version}</b></span>
+      <span class="vstatus">${v.status}</span>`;
+    card.innerHTML = `
+      <div class="card">
+        <h3>当前版本组合</h3>
+        <p><span class="k">数据版本</span> ${v.data_version} &nbsp; <span class="k">本体版本</span> ${v.ontology_version}</p>
+        <p><span class="k">规则集版本</span> ${v.rule_set_version} &nbsp; <span class="k">权威资源版本</span> ${v.authority_version}</p>
+        <p><span class="k">状态</span> ${v.status}</p>
+      </div>
+      <div class="honest-note">${v.note}</div>
+      <div class="card">
+        <h3>变更记录</h3>
+        ${v.changelog.map(c => `<p><span class="k">${c.date}</span> ${c.summary}</p>`).join("")}
+      </div>`;
+  } catch (e) {
+    bar.innerHTML = '<span class="vstatus">版本信息加载失败</span>';
+  }
+}
+
+async function loadConcepts() {
+  const box = document.getElementById("conceptsTable");
+  try {
+    const res = await fetch(API + "/api/ontology/concepts");
+    const rows = await res.json();
+    box.innerHTML = `<table class="data-table"><thead><tr>
+      <th>类型缩写</th><th>类名</th><th>中文</th><th>CIDOC-CRM</th><th>实体数(活库)</th><th>关联谓词数</th>
+      </tr></thead><tbody>${rows.map(r => `<tr>
+        <td class="mono">${r.type_abbr}</td><td class="mono">${r.class_name}</td><td>${r.label_zh}</td>
+        <td class="mono">${r.cidoc_crm || "—"}</td><td>${r.entity_count.toLocaleString()}</td><td>${r.distinct_predicates}</td>
+      </tr>`).join("")}</tbody></table>`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+
+async function loadPredicates() {
+  const box = document.getElementById("predicatesTable");
+  try {
+    const res = await fetch(API + "/api/ontology/predicates");
+    const rows = await res.json();
+    box.innerHTML = `<table class="data-table"><thead><tr>
+      <th>谓词</th><th>中文</th><th>种类</th><th>定义域</th><th>值域</th><th>CIDOC-CRM</th><th>匹配等级</th><th>陈述数</th>
+      </tr></thead><tbody>${rows.map(r => `<tr>
+        <td class="mono">${r.predicate}</td><td>${r.label_zh || "—"}</td><td>${r.kind}</td>
+        <td>${(Array.isArray(r.domain) ? r.domain : [r.domain]).map(d => `<span class="tag">${d}</span>`).join("")}</td>
+        <td>${Array.isArray(r.range) ? r.range.map(d => `<span class="tag">${d}</span>`).join("") : `<span class="tag">${r.range}</span>`}</td>
+        <td class="mono">${r.cidoc_crm}</td><td class="match-${r.match_level}">${r.match_level}</td><td>${r.statement_count.toLocaleString()}</td>
+      </tr>`).join("")}</tbody></table>`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+
+async function loadCrmTable() {
+  const box = document.getElementById("crmTable");
+  try {
+    const res = await fetch(API + "/api/ontology/crm-mapping");
+    const data = await res.json();
+    const lines = data.markdown.split("\n").filter(l => l.startsWith("|") && !l.startsWith("|---"));
+    const rows = lines.slice(1).map(l => l.split("|").map(c => c.trim()).filter(Boolean));
+    box.innerHTML = `<table class="data-table"><thead><tr><th>CLKG 术语</th><th>种类</th><th>CIDOC-CRM</th><th>match</th><th>说明</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>${r.map(c => `<td class="mono">${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+
+async function loadRules() {
+  const box = document.getElementById("rulesTable");
+  const planned = document.getElementById("plannedRules");
+  try {
+    const res = await fetch(API + "/api/rules");
+    const data = await res.json();
+    box.innerHTML = `<table class="data-table"><thead><tr>
+      <th>规则 ID</th><th>名称</th><th>类别</th><th>严重性</th><th>适用对象</th><th>说明</th>
+      </tr></thead><tbody>${data.implemented.map(r => `<tr>
+        <td class="mono">${r.rule_id}</td><td>${r.label}</td><td class="mono">${r.category}</td>
+        <td><span class="sev-badge ${r.severity}">${r.severity}</span></td><td class="mono">${r.applies_to}</td>
+        <td style="max-width:340px">${r.explanation}</td>
+      </tr>`).join("")}</tbody></table>`;
+    planned.innerHTML = `<b>本轮未形式化的规则类别</b><br>${data.planned_not_implemented.map(p => `· [${p.category}] ${p.note}`).join("<br>")}`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+
+async function loadRegionSelect() {
+  try {
+    const res = await fetch(API + "/api/regions");
+    const regions = await res.json();
+    const sel = document.getElementById("valRegion");
+    sel.innerHTML = regions.map(r => `<option value="${r.region}">${r.label}</option>`).join("");
+  } catch (e) {}
+}
+
+async function runValidation() {
+  const region = document.getElementById("valRegion").value;
+  const summary = document.getElementById("valSummary");
+  const box = document.getElementById("valFindings");
+  box.innerHTML = '<div class="empty-hint">校验中…</div>';
+  try {
+    const res = await fetch(`${API}/api/validation?region=${region}`);
+    const data = await res.json();
+    summary.innerHTML = Object.entries(data.summary).map(([sev, n]) =>
+      `<span class="sev-badge ${sev}" style="margin-right:8px;font-size:12px;padding:3px 10px">${sev}: ${n}</span>`).join("") || '<span class="sev-badge info">无违规</span>';
+    if (!data.findings.length) { box.innerHTML = '<div class="empty-hint">当前规则集下没有触发任何规则</div>'; return; }
+    box.innerHTML = `<table class="data-table"><thead><tr><th>规则</th><th>严重性</th><th>对象 PID</th></tr></thead><tbody>
+      ${data.findings.slice(0, 300).map(f => `<tr>
+        <td>${f.label} <span class="mono" style="color:var(--fg-muted)">(${f.rule_id})</span></td>
+        <td><span class="sev-badge ${f.severity}">${f.severity}</span></td>
+        <td class="mono">${f.subject_id || "—"}</td>
+      </tr>`).join("")}</tbody></table>
+      ${data.findings.length > 300 ? `<p class="empty-hint">共 ${data.findings.length} 条，仅展示前 300 条</p>` : ""}`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">校验失败</div>'; }
+}
+
+async function loadInference() {
+  const box = document.getElementById("inferenceTable");
+  try {
+    const res = await fetch(API + "/api/inference");
+    const rows = await res.json();
+    if (!rows.length) { box.innerHTML = '<div class="empty-hint">暂无推理记录</div>'; return; }
+    box.innerHTML = `<table class="data-table"><thead><tr>
+      <th>区域</th><th>推理方法</th><th>规则</th><th>输入/说明</th><th>产出陈述数</th><th>Evidence 来源</th>
+      </tr></thead><tbody>${rows.map(r => `<tr>
+        <td class="mono">${REGION_LABELS[r.region] || r.region}</td><td>${r.collector}</td>
+        <td class="mono">${r.rule_id}</td><td>${r.description}</td>
+        <td>${r.n_statements.toLocaleString()}</td><td class="mono" style="word-break:break-all">${r.source_name}</td>
+      </tr>`).join("")}</tbody></table>`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+
+async function loadSources() {
+  const box = document.getElementById("sourcesTable");
+  try {
+    const res = await fetch(API + "/api/catalog/sources");
+    const rows = await res.json();
+    box.innerHTML = `<table class="data-table"><thead><tr>
+      <th>区域</th><th>数据源</th><th>模态</th><th>坐标系说明</th><th>版权</th><th>状态</th>
+      </tr></thead><tbody>${rows.map(r => `<tr>
+        <td class="mono">${REGION_LABELS[r.region] || r.region}</td><td>${r.name}</td>
+        <td>${r.modalities.map(m => `<span class="tag">${m}</span>`).join("")}</td>
+        <td style="max-width:220px">${r.crs_note}</td><td>${r.rights}</td><td>${r.status}</td>
+      </tr>`).join("")}</tbody></table>`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+
+async function loadAuthorities() {
+  const box = document.getElementById("authoritiesTable");
+  try {
+    const res = await fetch(API + "/api/catalog/authorities");
+    const rows = await res.json();
+    box.innerHTML = `<table class="data-table"><thead><tr><th>资源</th><th>类型</th><th>用途</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td class="mono">${r.name}</td><td class="mono">${r.resource_type}</td><td>${r.usage}</td></tr>`).join("")}
+      </tbody></table>`;
+  } catch (e) { box.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+
+(async function init() {
+  loadVersionBar();
+  loadConcepts();
+  loadPredicates();
+  loadCrmTable();
+  loadRules();
+  loadRegionSelect();
+  loadInference();
+  loadSources();
+  loadAuthorities();
+})();
+</script>
+</body>
+</html>

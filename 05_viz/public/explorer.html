@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLKG · 探索工作台</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<link rel="stylesheet" href="clkg-theme.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="mark">CK</div><div class="brand"><b>CLKG</b><small>CULTURAL LANDSCAPE KNOWLEDGE GRAPH</small></div>
+  <nav class="topnav" aria-label="主导航"><a href="explorer.html" class="current">探索工作台</a><a href="workbench.html">研究总览</a><a href="topics.html">专题与应用</a><a href="upload.html">数据上传</a></nav>
+  <div class="spacer"></div><div id="versionBar" class="version-group" aria-label="当前研究版本"><span class="version">加载版本…</span></div><span id="apiStatus" class="api">连接中…</span>
+</header>
+
+<div class="app">
+  <aside class="panel left" aria-label="检索与结果">
+    <div class="eyebrow">Research entry</div><h1 class="panel-title">你要核验什么？</h1><p class="helper">从研究问题开始；筛选、版本与当前实体会同步到所有视图。</p>
+    <div class="question-grid">
+      <button class="question" data-question="statement"><strong>核验一条陈述</strong><span>回溯证据、规则与版本</span></button>
+      <button class="question" data-question="landscape"><strong>探索景观单元</strong><span>理解空间、时间与要素</span></button>
+      <button class="question" data-question="relation"><strong>追踪跨时空关系</strong><span>人—地—事件—文献</span></button>
+    </div>
+    <form class="filter-card" id="searchForm">
+      <div class="section-label">检索条件</div>
+      <div class="field"><label for="qRegion">区域 / 案例</label><select id="qRegion"></select></div>
+      <div class="field"><label for="qType">实体类型</label><select id="qType"><option value="">全部类型</option></select></div>
+      <div class="field"><label for="qKeyword">关键词或 PID</label><input id="qKeyword" type="text" placeholder="例如 Lo Manthang / 侨批局"></div>
+      <div class="field"><label for="qPredicate">谓词 / 关系</label><input id="qPredicate" type="text" placeholder="例如 containsPlace"></div>
+      <div class="filter-row"><div class="field"><label for="qEvidence">证据状态</label><select id="qEvidence"><option value="">全部</option><option value="verified">有证据</option><option value="pending">待核验</option></select></div><div class="field"><label for="qRule">规则状态</label><select id="qRule"><option value="">全部</option><option value="ok">无已知错误</option><option value="warning">含警告</option><option value="error">含错误</option></select></div></div>
+      <div class="action-row"><button class="btn primary" type="submit">检索实体</button><button class="btn" type="button" id="resetBtn">重置</button></div>
+    </form>
+    <div class="result-head"><span class="section-label">结果列表</span><span id="resultCount" class="result-count">尚未检索</span></div><div id="resultList" class="result-list"><div class="empty">选择一个研究问题或填写条件，开始建立可复现的查询。</div></div>
+  </aside>
+
+  <main class="panel center" aria-label="联动视图">
+    <div class="workspace-head"><div><div class="eyebrow">Explore workbench</div><h1>多模态时空视图</h1><p class="helper">地图、时间线与关系网络共享当前筛选、PID 与已发布版本。</p></div><div class="workspace-actions"><button class="btn" id="copyLinkBtn">复制研究链接</button><button class="btn" id="exportBtn">导出引用</button></div></div>
+    <div class="view-tabs" role="tablist"><button class="view-tab active" data-view="map" role="tab">地图</button><button class="view-tab" data-view="timeline" role="tab">时间线</button><button class="view-tab" data-view="graph" role="tab">关系网络</button></div>
+    <div class="canvas-note" id="canvasNote">请选择一个实体或运行查询；不默认加载不可解释的全量关系网络。</div>
+    <section id="view-map" class="view active"><div id="map"></div></section><section id="view-timeline" class="view"><div id="timeline" class="timeline"><div class="empty">选中实体后，这里显示其陈述的时间表达与精度。</div></div></section><section id="view-graph" class="view"><div id="graph"></div></section>
+  </main>
+
+  <aside class="panel right" aria-label="实体与证据核验"><div id="inspector"><div class="inspector-empty empty"><div><b>实体与证据核验</b><br>从结果列表、地图、时间线或关系网络选择一个实体。<br>这里将显示 PID、陈述、证据、方法、置信度、规则与版本。</div></div></div></aside>
+</div>
+
+<script>
+const API = location.origin;
+const ENTITY_TYPES = {pl:"地点 pl",clu:"文化景观单元 clu",ac:"人物/机构 ac",doc:"文献 doc",img:"数字影像 img",ev:"事件 ev"};
+const state = {region:"mustang",entityType:"",q:"",predicate:"",evidence:"",rule:"",pid:"",view:"map",results:[],detail:null,versions:null};
+let leafletMap, geoLayer, network;
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[c]));
+const label = r => ({mustang:"木斯塘",qiaopi:"侨批",xinjiang:"新疆",kashgar:"喀什",liangzhu:"良渚"}[r] || r);
+
+function queryFromUrl(){const p=new URLSearchParams(location.search);state.region=p.get("region")||state.region;state.entityType=p.get("types")||"";state.q=p.get("q")||"";state.predicate=p.get("predicate")||"";state.evidence=p.get("evidence")||"";state.rule=p.get("rule")||"";state.pid=p.get("pid")||"";state.view=p.get("view")||"map"}
+function syncUrl(){const p=new URLSearchParams();if(state.versions){p.set("data_version",state.versions.data_version);p.set("ontology_version",state.versions.ontology_version);p.set("rule_set_version",state.versions.rule_set_version);p.set("authority_version",state.versions.authority_version)};p.set("region",state.region);if(state.entityType)p.set("types",state.entityType);if(state.q)p.set("q",state.q);if(state.predicate)p.set("predicate",state.predicate);if(state.evidence)p.set("evidence",state.evidence);if(state.rule)p.set("rule",state.rule);if(state.pid)p.set("pid",state.pid);p.set("view",state.view);history.replaceState(null,"",`${location.pathname}?${p}`)}
+function setForm(){ $("#qRegion").value=state.region;$("#qType").value=state.entityType;$("#qKeyword").value=state.q;$("#qPredicate").value=state.predicate;$("#qEvidence").value=state.evidence;$("#qRule").value=state.rule }
+function badge(kind,text){return `<span class="badge ${kind}">${text}</span>`}
+function confidenceBadge(n){if(n===null||n===undefined)return badge("pending","○ 待核验");if(n<.8)return badge("pending",`? 置信度 ${n}`);return badge("source",`● 置信度 ${n}`)}
+
+async function loadVersions(){try{const v=await (await fetch(API+"/api/versions")).json();state.versions=v;$("#versionBar").innerHTML=`<span class="version">数据 <b>${esc(v.data_version)}</b></span><span class="version">本体 <b>${esc(v.ontology_version)}</b></span><span class="version">规则 <b>${esc(v.rule_set_version)}</b></span><span class="version">权威 <b>${esc(v.authority_version)}</b></span><span class="version status">● ${esc(v.status || "PUBLISHED")}</span>`;syncUrl()}catch(e){$("#versionBar").innerHTML='<span class="version">版本信息不可用</span>'}}
+async function loadRegions(){const status=$("#apiStatus");try{const regions=await (await fetch(API+"/api/regions")).json();status.textContent="● 数据服务已连接";status.className="api ok";const sel=$("#qRegion");sel.innerHTML=regions.map(r=>`<option value="${esc(r.region)}">${esc(r.label)}</option>`).join("");Object.entries(ENTITY_TYPES).forEach(([key,val])=>$("#qType").insertAdjacentHTML("beforeend",`<option value="${key}">${val}</option>`));setForm();if(state.q||state.entityType||state.predicate||state.pid) await runSearch();if(state.pid) await selectEntity(state.region,state.pid)}catch(e){status.textContent="○ 数据服务未连接";status.className="api err"}}
+function readForm(){state.region=$("#qRegion").value;state.entityType=$("#qType").value;state.q=$("#qKeyword").value.trim();state.predicate=$("#qPredicate").value.trim();state.evidence=$("#qEvidence").value;state.rule=$("#qRule").value}
+async function runSearch(){readForm();state.pid="";state.detail=null;syncUrl();$("#resultCount").textContent="查询中…";$("#resultList").innerHTML='<div class="empty">正在根据当前研究条件检索实体…</div>';const p=new URLSearchParams({region:state.region,entity_type:state.entityType,q:state.q,predicate:state.predicate,limit:"60"});try{state.results=await (await fetch(`${API}/api/search?${p}`)).json();renderResults();loadMapForRegion(state.region,"")}catch(e){$("#resultCount").textContent="查询失败";$("#resultList").innerHTML='<div class="empty">无法读取查询结果，请确认数据服务正在运行。</div>'}}
+function renderResults(){const rows=state.results;$("#resultCount").textContent=`${rows.length} 个实体`;if(!rows.length){$("#resultList").innerHTML='<div class="empty">没有匹配实体。可尝试放宽关键词、类型或谓词条件。</div>';return}$("#resultList").innerHTML=rows.map(r=>`<button class="result ${r.pid===state.pid?"selected":""}" data-pid="${esc(r.pid)}"><span class="result-name">${esc(r.name||"（未命名实体）")}</span><span class="result-meta">${badge("type",esc(r.entity_type))}${r.has_geom?badge("source","⌖ 有空间数据"):""}</span><span class="pid">${esc(r.pid)}</span></button>`).join("");document.querySelectorAll(".result").forEach(el=>el.onclick=()=>selectEntity(state.region,el.dataset.pid))}
+async function selectEntity(region,pid){state.region=region;state.pid=pid;syncUrl();renderResults();$("#inspector").innerHTML='<div class="empty">正在加载实体、陈述与证据…</div>';try{const data=await (await fetch(`${API}/api/entity/${region}/${encodeURIComponent(pid)}`)).json();state.detail=data;renderInspector(data);renderTimeline(data);renderGraph(pid,data);loadMapForRegion(region,pid);loadRuleStatus(region,pid)}catch(e){$("#inspector").innerHTML='<div class="empty">无法加载该实体的详情。</div>'}}
+function renderInspector(data){const name=data.statements.find(s=>s.predicate==="hasName")?.object_value || data.pid.split(":").pop();const stmts=data.statements.map(s=>{const value=s.object_entity_id?`→ ${esc(s.object_name||s.object_entity_id)}`:s.geom?"空间几何（见地图）":esc(s.object_value||"—");const method=s.generation_method==="rule_inference"?badge("inferred","◇ 规则推理"):badge("source","● 来源记录");const evidence=s.evidence?`<div class="evidence"><strong>证据 #${s.evidence.id}</strong><br>${esc(s.evidence.source_name||s.evidence.source_type||"未命名来源")}<br>${s.evidence.collector?`记录者：${esc(s.evidence.collector)}<br>`:""}${s.evidence.recording_date?`记录日期：${esc(s.evidence.recording_date)}<br>`:""}${s.evidence.description?esc(s.evidence.description):""}</div>`:`<div class="evidence">未关联证据。此陈述不可直接作为研究结论使用。</div>`;return `<details class="statement"><summary><div class="statement-top"><span class="predicate">${esc(s.predicate)}</span>${confidenceBadge(s.confidence)}</div><div class="statement-value">${value}</div><div class="statement-meta">${method}${s.valid_time_start?badge("type",`◷ ${esc(s.valid_time_start)}${s.valid_time_end?"–"+esc(s.valid_time_end):""}`):""}</div></summary>${evidence}</details>`}).join("");$("#inspector").innerHTML=`<div class="eyebrow">Entity inspector</div><h2 class="entity-title">${esc(name)}</h2><div class="entity-sub">${badge("type",esc(data.entity_type))}${badge("source","PID")}</div><div class="pid" style="margin-top:7px">${esc(data.pid)}</div><div class="section-label">陈述与证据</div><p class="helper">${data.statements.length} 条陈述。展开任一条以核验来源、方法与置信度。</p><div class="statements">${stmts||'<div class="empty">该实体没有可展示的陈述。</div>'}</div><hr class="divider"><div id="ruleArea"><div class="section-label">规则与校验</div><div class="empty">校验中…</div></div>`}
+function renderTimeline(data){const withTime=data.statements.filter(s=>s.valid_time_start||s.valid_time_end);$("#timeline").innerHTML=withTime.length?withTime.map(s=>`<div class="timeline-item"><div class="timeline-date">${esc(s.valid_time_start||"时间未知")}${s.valid_time_end?` — ${esc(s.valid_time_end)}`:""}</div><div class="timeline-main"><b>${esc(s.predicate)}</b><p>${esc(s.object_value||s.object_name||s.object_entity_id||"空间几何")}</p><div class="statement-meta">${s.generation_method==="rule_inference"?badge("inferred","◇ 规则推理"):badge("source","● 来源记录")}${confidenceBadge(s.confidence)}</div></div></div>`).join(""):'<div class="empty">该实体没有结构化时间表达。未知时间不会被伪装为精确日期。</div>'}
+function renderGraph(centerPid,data){const nodes=[{id:centerPid,label:centerPid.split(":").pop(),color:{background:"#8d3e2e",border:"#8d3e2e"},font:{color:"#fff",size:12}}],edges=[],seen=new Set([centerPid]);data.statements.forEach((s,i)=>{if(s.object_entity_id){if(!seen.has(s.object_entity_id)){nodes.push({id:s.object_entity_id,label:s.object_name||s.object_entity_id.split(":").pop(),color:{background:"#f5f2ea",border:"#395b91"},font:{size:11}});seen.add(s.object_entity_id)}edges.push({from:centerPid,to:s.object_entity_id,label:s.predicate,arrows:"to",font:{size:9,align:"middle"},color:{color:s.generation_method==="rule_inference"?"#395b91":"#8d3e2e",inherit:false},dashes:s.generation_method==="rule_inference"})}});const c=$("#graph");network?.destroy();network=new vis.Network(c,{nodes:new vis.DataSet(nodes),edges:new vis.DataSet(edges)},{physics:{stabilization:true,barnesHut:{springLength:135}},interaction:{hover:true},nodes:{shape:"dot",size:16}});network.once("stabilizationIterationsDone",()=>network.fit({animation:false}))}
+async function loadMapForRegion(region,highlightPid){if(!leafletMap){leafletMap=L.map("map").setView([30,90],3);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(leafletMap)}if(geoLayer)leafletMap.removeLayer(geoLayer);const type=state.entityType;try{const fc=await (await fetch(`${API}/api/geo?region=${region}&entity_type=${type}&limit=1200`)).json();if(!fc.features.length){$("#canvasNote").textContent="当前查询没有可显示的空间对象。可切换时间线或关系网络查看非空间陈述。";return}geoLayer=L.geoJSON(fc,{pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:f.properties.pid===highlightPid?8:4,color:f.properties.pid===highlightPid?"#8d3e2e":"#1f5b48",fillOpacity:.75}),style:f=>({color:f.properties.pid===highlightPid?"#8d3e2e":"#1f5b48",weight:2}),onEachFeature:(f,l)=>l.bindPopup(`<b>${esc(f.properties.name||f.properties.pid)}</b><br><small>${esc(f.properties.entity_type)}</small>`).on("click",()=>selectEntity(region,f.properties.pid))}).addTo(leafletMap);try{leafletMap.fitBounds(geoLayer.getBounds(),{maxZoom:14})}catch(e){}$("#canvasNote").textContent=`${label(region)} · ${fc.features.length} 个空间对象 · 当前版本与筛选已写入链接`;}catch(e){$("#canvasNote").textContent="地图数据加载失败。"}}
+async function loadRuleStatus(region,pid){try{const data=await (await fetch(`${API}/api/validation?region=${region}`)).json();const mine=data.findings.filter(f=>f.subject_id===pid);const box=$("#ruleArea");box.innerHTML=`<div class="section-label">规则与校验</div><p class="helper">规则集 ${esc(data.rule_set_version)}。${mine.length?"以下问题需要在使用该实体前处理。":"未发现直接归属于该实体的校验问题。"}</p><div class="rule-list">${mine.length?mine.map(f=>`<div class="rule">${badge(f.severity==="error"?"error":"pending",f.severity==="error"?"! 错误":"! 警告")}<div><b>${esc(f.label)}</b><br><span class="pid">${esc(f.rule_id)}</span></div></div>`).join(""):`<div class="rule">${badge("source","● 通过")}<div>当前规则集下无对象级发现；这不等于该实体已被人工核验。</div></div>`}</div>`}catch(e){$("#ruleArea").innerHTML='<div class="section-label">规则与校验</div><div class="empty">校验状态暂不可用。</div>'}}
+function setView(view){state.view=view;syncUrl();document.querySelectorAll(".view-tab").forEach(x=>x.classList.toggle("active",x.dataset.view===view));document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id===`view-${view}`));if(view==="map"&&leafletMap)setTimeout(()=>leafletMap.invalidateSize(),50);if(view==="graph"&&network)setTimeout(()=>{network.redraw();network.fit({animation:false})},50)}
+function applyQuestion(q){if(q==="statement"){state.entityType="";state.predicate="";state.q="";state.evidence="verified"}if(q==="landscape"){state.entityType="clu";state.predicate="";state.q="";state.evidence=""}if(q==="relation"){state.entityType="";state.predicate="containsPlace";state.q="";state.evidence=""}setForm();runSearch()}
+async function copyLink(){try{await navigator.clipboard.writeText(location.href);$("#canvasNote").textContent="研究链接已复制：包含当前版本、筛选、PID 与视图。"}catch(e){$("#canvasNote").textContent="无法自动复制，请从浏览器地址栏复制当前研究链接。"}}
+function exportCitation(){const p=new URLSearchParams({region:state.region,entity_type:state.entityType,q:state.q,predicate:state.predicate,format:"json"});window.open(`${API}/api/export?${p}`,"_blank")}
+
+$("#searchForm").addEventListener("submit",e=>{e.preventDefault();runSearch()});$("#resetBtn").onclick=()=>{Object.assign(state,{entityType:"",q:"",predicate:"",evidence:"",rule:"",pid:"",detail:null});setForm();syncUrl();$("#resultList").innerHTML='<div class="empty">筛选已重置。请选择一个研究问题，或从关键词／PID 开始。</div>';$("#resultCount").textContent="尚未检索";$("#inspector").innerHTML='<div class="inspector-empty empty">从结果列表、地图、时间线或关系网络选择一个实体。</div>'};document.querySelectorAll(".question").forEach(b=>b.onclick=()=>applyQuestion(b.dataset.question));document.querySelectorAll(".view-tab").forEach(b=>b.onclick=()=>setView(b.dataset.view));$("#copyLinkBtn").onclick=copyLink;$("#exportBtn").onclick=exportCitation;
+(async function init(){
+  queryFromUrl();
+  const requestedPid=state.pid;
+  await loadVersions();
+  await loadRegions();
+  if(requestedPid){ state.pid=requestedPid; await selectEntity(state.region,requestedPid); }
+  setView(state.view);
+})();
+</script>
+</body>
+</html>

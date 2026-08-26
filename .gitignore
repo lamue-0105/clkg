@@ -87,3 +87,7 @@ ENV/
 # === 本地草稿 ===
 DRAFT_*.md
 notes_*.md
+
+# === 上传队列数据（批次记录、原文件——不上公开仓库）===
+02_data_collection/upload_queue/
+

@@ -226,3 +226,156 @@ def ingest_qiaopi_xlsx(
                             "ref_type_abbr": "pl", "ref_region": region}))
 
     return out
+
+
+# ============================================================================
+# 潮汕侨批集成（数据清洗版本）— second, disjoint xlsx source.
+#
+# Unlike qiaopi_geocoded_hybrid.xlsx, these three 辑 (volumes) have NO id /
+# collectNumber column and NO lat/lon — they carry only flat place-name text
+# (寄批地/收批地, no origin/dest hierarchy columns) and richer date-parsing
+# metadata (寄批时间_标准化 + parse-confidence columns). A composite-key
+# comparison against the existing 13,578 doc entities found ~99.7% of these
+# 87,247 rows have no match on (sender+recipient+origin+dest[+amount]) — this
+# is a disjoint batch, not a re-export of what qiaopi_geocoded_hybrid already
+# covered. Geometry is intentionally NOT attached here: it comes later from
+# 侨批地理数据/侨批1.gdb's place-name node tables, matched by place name as a
+# separate backfill pass — keeps "ingest new letters" and "attach geocoding"
+# independently re-runnable.
+#
+# Natural key: no source column is a reliable per-letter identifier (表格名称
+# repeats hundreds–1000+ times — it's a sub-table/scan-batch label, not a
+# letter ID). We synthesize one from provenance: {辑}-{原始行号}. This is
+# stable across re-runs (same row → same key) and evidence-traceable, at the
+# cost of not being a "real-world" identifier the way collectNumber is.
+# ============================================================================
+
+CHASHAN_FILES: dict[str, str] = {
+    "第一辑": "最终汇总表_日期优化第一辑_已修正_寄批时间标准化.xlsx",
+    "第二辑": "第二辑excel_合并_寄批时间标准化3.xlsx",
+    "第三辑": "最终汇总表_日期优化第三辑_已修正_寄批时间标准化.xlsx",
+}
+
+
+def ingest_chaoshan_integration_xlsx(
+    dir_path: Path,
+    *,
+    region: str = REGION_DEFAULT,
+    max_rows: Optional[int] = None,
+    volumes: Optional[list[str]] = None,
+) -> list[StatementRow]:
+    out: list[StatementRow] = []
+    vols = volumes or list(CHASHAN_FILES.keys())
+
+    for vol in vols:
+        fname = CHASHAN_FILES[vol]
+        fpath = dir_path / fname
+        df = pd.read_excel(fpath, sheet_name=0, nrows=max_rows)
+        df = df.rename(columns={"批 款": "批款", "类 别": "类别"})
+        ev_uri_base = f"file://{fpath}"
+
+        for idx, r in df.iterrows():
+            row_no = idx + 2  # +1 for 0-index, +1 for the header row → matches Excel row number
+            nk = f"{vol}-{row_no:06d}"
+            ev_uri = f"{ev_uri_base}#row={row_no}"
+            ev_meta = {
+                "来源辑": vol,
+                "表格名称": _clean(r.get("表格名称")),
+                "页码": _clean(r.get("页码")),
+                "寄批时间_解析等级": _clean(r.get("寄批时间_解析等级")),
+                "寄批时间_候选公历年": _clean(r.get("寄批时间_候选公历年")),
+                "寄批时间_建议公历年": _clean(r.get("寄批时间_建议公历年")),
+                "寄批时间_年份来源": _clean(r.get("寄批时间_年份来源")),
+                "寄批时间_干支提示": _clean(r.get("寄批时间_干支提示")),
+                "来源文件": _clean(r.get("来源文件")),
+                "来源Sheet": _clean(r.get("来源Sheet")),
+            }
+            ev_meta = {k: v for k, v in ev_meta.items() if v is not None}
+
+            doc = dict(
+                ev_source_uri=ev_uri, ev_source_type="xlsx_row",
+                ev_metadata=ev_meta,
+                ent_region=region, ent_type_abbr="doc",
+                ent_temporal="modern",
+                ent_natural_key=nk,
+            )
+
+            if (v := _clean(r.get("类别"))):
+                out.append(StatementRow(**doc, stmt_predicate="hasNotes",
+                                        stmt_value={"value": f"类别: {v}"}))
+
+            # Raw display date vs. standardized (parsed) date — same convention
+            # as the hybrid connector's shownDate/formalDate split.
+            if (v := _clean(r.get("寄批时间"))):
+                out.append(StatementRow(**doc, stmt_predicate="hasShownDate",
+                                        stmt_value={"value": v}))
+            if (v := _clean(r.get("寄批时间_标准化"))):
+                out.append(StatementRow(**doc, stmt_predicate="hasFormalDate",
+                                        stmt_value={"value": v}))
+
+            if (v := _clean(r.get("批款"))):
+                out.append(StatementRow(**doc, stmt_predicate="hasAmount",
+                                        stmt_value={"value": v}))
+
+            # Sender (Actor)
+            if (sender_nk := _clean(r.get("寄批人"))):
+                sender = dict(
+                    ev_source_uri=ev_uri, ev_source_type="xlsx_row",
+                    ev_metadata=ev_meta,
+                    ent_region=region, ent_type_abbr="ac",
+                    ent_temporal="modern",
+                    ent_natural_key=sender_nk,
+                )
+                out.append(StatementRow(**sender, stmt_predicate="hasName",
+                                        stmt_value={"value": sender_nk}))
+                out.append(StatementRow(**doc, stmt_predicate="hasSender",
+                    stmt_value={"ref_natural_key": sender_nk,
+                                "ref_type_abbr": "ac", "ref_region": region}))
+
+            # Recipient (Actor)
+            if (rec_nk := _clean(r.get("收批人"))):
+                rec = dict(
+                    ev_source_uri=ev_uri, ev_source_type="xlsx_row",
+                    ev_metadata=ev_meta,
+                    ent_region=region, ent_type_abbr="ac",
+                    ent_temporal="modern",
+                    ent_natural_key=rec_nk,
+                )
+                out.append(StatementRow(**rec, stmt_predicate="hasName",
+                                        stmt_value={"value": rec_nk}))
+                out.append(StatementRow(**doc, stmt_predicate="hasRecipient",
+                    stmt_value={"ref_natural_key": rec_nk,
+                                "ref_type_abbr": "ac", "ref_region": region}))
+
+            # Origin place — flat text, no hierarchy columns in this source,
+            # no lat/lon (geometry backfilled separately from 侨批1.gdb).
+            if (origin_name := _clean(r.get("寄批地"))):
+                origin = dict(
+                    ev_source_uri=ev_uri, ev_source_type="xlsx_row",
+                    ev_metadata=ev_meta,
+                    ent_region=region, ent_type_abbr="pl",
+                    ent_temporal="unk",
+                    ent_natural_key=origin_name,
+                )
+                out.append(StatementRow(**origin, stmt_predicate="hasName",
+                                        stmt_value={"value": origin_name}))
+                out.append(StatementRow(**doc, stmt_predicate="hasOriginPlace",
+                    stmt_value={"ref_natural_key": origin_name,
+                                "ref_type_abbr": "pl", "ref_region": region}))
+
+            # Destination place — same caveat: flat text, no lat/lon here.
+            if (dest_name := _clean(r.get("收批地"))):
+                dest = dict(
+                    ev_source_uri=ev_uri, ev_source_type="xlsx_row",
+                    ev_metadata=ev_meta,
+                    ent_region=region, ent_type_abbr="pl",
+                    ent_temporal="unk",
+                    ent_natural_key=dest_name,
+                )
+                out.append(StatementRow(**dest, stmt_predicate="hasName",
+                                        stmt_value={"value": dest_name}))
+                out.append(StatementRow(**doc, stmt_predicate="hasDestinationPlace",
+                    stmt_value={"ref_natural_key": dest_name,
+                                "ref_type_abbr": "pl", "ref_region": region}))
+
+    return out

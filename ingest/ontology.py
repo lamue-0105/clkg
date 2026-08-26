@@ -40,7 +40,7 @@ PROP_CRM = {
 }
 # range = xsd:decimal 的数据属性
 NUMERIC = {"hasEmotionScore", "hasAmount", "hasPaidAmount", "hasConvertedAmount",
-           "hasArea", "hasShapeArea", "hasShapeLength"}
+           "hasArea", "hasShapeArea", "hasShapeLength", "hasElevation"}
 
 PREFIXES = """@prefix clkg: <https://w3id.org/clkg/ontology#> .
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
