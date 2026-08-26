@@ -1,0 +1,25 @@
+{
+  "_doc": "良渚口述史(CIDOC-CRM)映射 spec 范例。来源=matching 自动建议 + 人工补装配规则(主体类型/边谓词/natural_key)。喂给 ingest.pipelines.generic 入库。",
+  "xlsx": "/Users/lamue/clkg/data/良渚口述史数据表.xlsx",
+  "sheet": "Sheet1",
+  "region": "liangzhu",
+  "source_type": "oral_history",
+  "subject": {
+    "entity_type": "ev",
+    "natural_key": {"synthetic_prefix": "liangzhu-oral"}
+  },
+  "columns": {
+    "0":  {"kind": "value", "target": "hasFullText"},
+    "1":  {"kind": "value", "target": "hasType"},
+    "3":  {"kind": "value", "target": "hasName"},
+    "7":  {"kind": "value", "target": "hasDescription"},
+    "15": {"kind": "value", "target": "hasProfession"},
+    "19": {"kind": "value", "target": "hasObject"},
+    "21": {"kind": "value", "target": "hasObjectType"},
+    "23": {"kind": "value", "target": "hasShownDate"},
+    "25": {"kind": "value", "target": "hasTimeSpan"},
+    "10": {"kind": "ref", "target": "tookPlaceIn",  "ref_type": "pl", "ref_prefix": "liangzhu-place"},
+    "13": {"kind": "ref", "target": "carriedOutBy", "ref_type": "ac", "ref_prefix": "liangzhu-person"},
+    "16": {"kind": "ref", "target": "mentionsGroup","ref_type": "ac", "ref_prefix": "liangzhu-group"}
+  }
+}

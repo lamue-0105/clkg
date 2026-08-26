@@ -1,0 +1,6 @@
+﻿关联类型,关联实体,关联字段,关联规则,适用场景,,,,,,,,,,,,,,,
+空间关联,CulturalLandscapeUnit ↔ Geometry,EntityID → Geometry_EntityID,1:N（1 个单元对应多个几何片段）,多尺度空间分析、边界叠加,,,,,,,,,,,,,,,
+时间关联,Event ↔ TimeSpan,EventID → TimeSpan_EntityID,1:1（1 个事件绑定 1 个时间段）,年代时序统计、事件溯源,,,,,,,,,,,,,,,
+语义关联,Evidence ↔ PeriodizedPlace,Evidence_ID ↔ Place_ID,N:M（多证据关联多地点）,图像 - 地点语义检索、佐证匹配,,,,,,,,,,,,,,,
+主体关联,Actor ↔ Event,Actor_ID ↔ Event_ID,N:M（多主体参与多事件）,参与主体统计、事件溯源,,,,,,,,,,,,,,,
+层级关联,CulturalLandscapeUnit ↔ PeriodizedPlace,Parent_UnitID ↔ Child_PlaceID,1:N（1 个单元包含多个地点）,遗产单元拆解、层级统计,,,,,,,,,,,,,,,
