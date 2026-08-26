@@ -1,4 +1,0 @@
-interface:
-  display_name: "社会科学研究框架图工作室"
-  short_description: "生成历史学与社会科学论文的学术研究框架图、理论模型图和综述结构图"
-  default_prompt: "使用 $social-science-research-framework-figure，根据我的论文或申报书内容提炼研究问题、理论脉络、材料证据、研究方法和学术贡献，分阶段设计并生成清爽、可编辑、适合论文排版的 SVG 图。"
