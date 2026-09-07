@@ -20,8 +20,8 @@ tags:
 ### 1.1 长期访问地址
 
 - CLKG 主站：`shapc-lab.cn`（后续建设）
-- 问卷应用：`survey.shapc-lab.cn`
-- 管理后台：`survey.shapc-lab.cn/admin`
+- 问卷应用：`survey-clkg.shapc-lab.cn`
+- 管理后台：`survey-clkg.shapc-lab.cn/admin`
 
 问卷应用不再依赖问卷星、腾讯文档或 `chatgpt.site`。它是 CLKG 的独立 Web App，后续可扩展为“调查问卷目录”，保留历史问卷及题目版本。
 
@@ -41,7 +41,7 @@ tags:
 ```text
 研究者（微信 / 浏览器）
         ↓ HTTPS
-survey.shapc-lab.cn
+survey-clkg.shapc-lab.cn
         ↓
 Cloudflare Worker（问卷页面、提交接口、管理员后台）
         ├─ D1：实时保存匿名答卷
@@ -92,7 +92,7 @@ Cloudflare Worker（问卷页面、提交接口、管理员后台）
 在 Worker 的 Custom Domain 中添加：
 
 ```text
-survey.shapc-lab.cn
+survey-clkg.shapc-lab.cn
 ```
 
 Cloudflare 会创建证书和路由。`survey` 子域名只用于问卷应用；不要将 D1 或 R2 直接暴露到公网。
