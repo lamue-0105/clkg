@@ -1,0 +1,4 @@
+interface:
+  display_name: "CLKG 研究者需求调研"
+  short_description: "Design cross-type heritage researcher needs studies"
+  default_prompt: "Use $clkg-researcher-needs to design or analyse a CLKG researcher-needs study."
