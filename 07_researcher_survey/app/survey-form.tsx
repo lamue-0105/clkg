@@ -111,6 +111,7 @@ export function SurveyForm() {
   const [other, setOther] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [honeypot, setHoneypot] = useState("");
   const steps = ["研究任务", "材料与流程", "困难与证据", "治理与成果"];
   const getList = (key: string) => (answers[key] as string[]) ?? [];
   const getText = (key: string) => (answers[key] as string) ?? "";
@@ -125,7 +126,7 @@ export function SurveyForm() {
     if (!requiredReady) { setStatus("error"); setMessage("请完成带 * 的必答内容，并确认知情同意。 "); return; }
     setStatus("sending"); setMessage("");
     try {
-      const response = await fetch("/api/responses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ answers: { ...answers, other, submittedAtClient: new Date().toISOString() }, honeypot: "" }) });
+      const response = await fetch("/api/responses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ answers: { ...answers, other, submittedAtClient: new Date().toISOString() }, honeypot }) });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "提交失败，请稍后再试。");
       setStatus("success"); setMessage("感谢您的参与。您的匿名答卷已成功提交。 ");
@@ -138,6 +139,9 @@ export function SurveyForm() {
 
   return <main className="survey-shell"><header className="hero"><img className="cover-image" src="/clkg-heritage-cover.png" alt="考古遗址、历史建筑、文化景观、文献、馆藏与口述资料相互关联的插画" /><span className="eyebrow">CLKG · 研究者需求调研</span><h1>文化遗产跨类型数据组织与研究需求调查</h1><p>请以近两年一项真实的文化遗产研究任务为例作答。全程约 12–15 分钟，不收集姓名、联系方式或原始敏感材料。</p><div className="ethics"><strong>填写前请知悉：</strong>参与完全自愿；请勿在开放题中填写个人信息、精确脆弱遗址坐标或受限制的社区知识。</div></header>
     <form className="survey-card" onSubmit={submit}>
+      <div className="honeypot" aria-hidden="true">
+        <label>请勿填写此项<input name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(event) => setHoneypot(event.target.value)} /></label>
+      </div>
       <nav aria-label="问卷进度"><div className="progress-label"><span>第 {step + 1} / {steps.length} 步</span><strong>{steps[step]}</strong></div><div className="progress-track"><i style={{ width: `${percent}%` }} /></div></nav>
       {step === 0 && <>
         <Question number="Q0" title="知情同意" hint="* 必答"><label className="consent"><input type="checkbox" checked={answers.consent === true} onChange={(event) => update("consent", event.target.checked)} />我已了解本调查用于学术研究与需求分析，并同意匿名参与。</label></Question>

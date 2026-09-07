@@ -14,11 +14,25 @@ async function authorize(request: Request) {
   return null;
 }
 
-async function loadResponses(): Promise<StoredResponse[]> {
+async function loadRecentResponses(): Promise<StoredResponse[]> {
   const result = await env.DB.prepare(
     "SELECT id, submitted_at, answers_json FROM survey_responses ORDER BY id DESC LIMIT 500",
   ).all<StoredResponse>();
   return result.results;
+}
+
+async function loadAllResponses(): Promise<StoredResponse[]> {
+  const responses: StoredResponse[] = [];
+  let lastId = 0;
+
+  for (;;) {
+    const page = await env.DB.prepare(
+      "SELECT id, submitted_at, answers_json FROM survey_responses WHERE id > ? ORDER BY id ASC LIMIT 500",
+    ).bind(lastId).all<StoredResponse>();
+    responses.push(...page.results);
+    if (page.results.length < 500) return responses;
+    lastId = page.results.at(-1)?.id ?? lastId;
+  }
 }
 
 function parseAnswers(value: string): Record<string, unknown> {
@@ -40,8 +54,8 @@ export async function GET(request: Request) {
   const denied = await authorize(request);
   if (denied) return denied;
 
-  const responses = await loadResponses();
   const wantsExport = new URL(request.url).searchParams.get("format") === "csv";
+  const responses = wantsExport ? await loadAllResponses() : await loadRecentResponses();
   const parsed = responses.map((response) => ({
     id: response.id,
     submittedAt: response.submitted_at,

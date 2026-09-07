@@ -7,6 +7,7 @@ h1 { margin: 10px 0 14px; color: #183b38; font-family: Georgia, "Songti SC", ser
 .ethics { margin-top: 18px; padding: 15px 18px; border-left: 4px solid #d3a25c; background: #fff9e9; color: #67593f; font-size: 14px; line-height: 1.7; }
 .survey-card, .success-card { border: 1px solid #ded8cc; border-radius: 18px; background: #fffefb; box-shadow: 0 16px 45px rgba(37, 54, 49, .07); }
 .survey-card { padding: clamp(22px, 4vw, 48px); }
+.honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 nav { margin-bottom: 34px; } .progress-label { display: flex; justify-content: space-between; color: #69736f; font-size: 13px; } .progress-label strong { color: #294e49; } .progress-track { height: 6px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: #e7e3da; } .progress-track i { display: block; height: 100%; border-radius: inherit; background: #2e7770; transition: width .2s ease; }
 .question { margin: 0 0 36px; } .question-title { display: flex; gap: 12px; align-items: baseline; } .question-title > span { color: #a96537; font-size: 13px; font-weight: 800; } .question h2 { margin: 0; color: #203c39; font-size: 19px; line-height: 1.45; } .question h3 { margin: 22px 0 10px; color: #6f4e31; font-size: 14px; } .hint { margin: 8px 0 14px; color: #78837e; font-size: 13px; }
 .choice-stack { display: grid; gap: 9px; } .radio-line, .consent { display: flex; gap: 10px; align-items: flex-start; color: #354b47; line-height: 1.55; cursor: pointer; } input { accent-color: #2e7770; margin-top: 4px; }

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { SURVEY_SCHEMA_VERSION, isNonEmptySelection, isNonEmptyText } from "@/lib/survey-config";
 
 const MAX_PAYLOAD_SIZE = 120_000;
 
@@ -23,9 +24,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "请完成问卷后再提交。" }, { status: 400 });
   }
 
-  const answers = payload.answers as { consent?: unknown; role?: unknown; stage?: unknown };
-  if (answers.consent !== true || !answers.role || !answers.stage) {
-    return Response.json({ error: "请确认知情同意并完成必答的基本信息。" }, { status: 400 });
+  const answers = payload.answers as { consent?: unknown; role?: unknown; stage?: unknown; heritage?: unknown; researchQuestion?: unknown };
+  if (
+    answers.consent !== true
+    || !isNonEmptySelection(answers.role)
+    || !isNonEmptyText(answers.stage)
+    || !isNonEmptySelection(answers.heritage)
+    || !isNonEmptyText(answers.researchQuestion)
+  ) {
+    return Response.json({ error: "请确认知情同意，并完成所有标有 * 的必答内容。" }, { status: 400 });
   }
 
   const serialized = JSON.stringify(payload.answers);
@@ -36,7 +43,7 @@ export async function POST(request: Request) {
   await env.DB.prepare(
     "INSERT INTO survey_responses (schema_version, answers_json) VALUES (?, ?)",
   )
-    .bind("v0.1", serialized)
+    .bind(SURVEY_SCHEMA_VERSION, serialized)
     .run();
 
   return Response.json({ ok: true });

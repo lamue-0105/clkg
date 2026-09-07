@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "文化遗产跨类型数据组织与研究需求调查",
   description: "CLKG 文化遗产跨类型数据组织与研究需求调查。",
+  robots: { index: false, follow: false },
   metadataBase: new URL("https://clkg-heritage-research-survey.mr-sarah435.chatgpt.site"),
   openGraph: {
     title: "文化遗产跨类型数据组织与研究需求调查",
